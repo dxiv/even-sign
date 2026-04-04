@@ -79,14 +79,26 @@
                   Compact glossary (one slide per word)
                 </label>
                 <label class="ev-sign-opt">
-                  <input type="checkbox" id="ev-sign-anim" />
-                  Animate preview
+                  <input type="checkbox" id="ev-sign-anim" checked />
+                  Animate preview (2+ slides)
                 </label>
               </div>
 
               <div class="ev-sign-preview-wrap">
                 <span id="ev-sign-preview-label" class="ev-sign-preview-label mono">preview</span>
-                <img id="ev-sign-preview" class="ev-sign-preview" alt="" width="280" height="120" />
+                <div class="ev-sign-preview-frame">
+                  <div id="ev-sign-preview-placeholder" class="ev-sign-preview-placeholder mono">
+                    <span class="ev-sign-preview-brand__even">EVEN</span><span class="ev-sign-preview-brand__sign">sign</span>
+                  </div>
+                  <img
+                    id="ev-sign-preview"
+                    class="ev-sign-preview"
+                    alt=""
+                    width="280"
+                    height="120"
+                    hidden
+                  />
+                </div>
               </div>
 
               <section class="hub-console ev-console" aria-label="Status">

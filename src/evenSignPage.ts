@@ -11,6 +11,12 @@ type InitOpts = {
   bridge: EvenAppBridge | null;
 };
 
+type PreviewEls = {
+  img: HTMLImageElement | null;
+  placeholder: HTMLElement | null;
+  label: HTMLElement | null;
+};
+
 function getSpeechRecognition(): SpeechRecognition | null {
   const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
   return Ctor ? new Ctor() : null;
@@ -35,6 +41,15 @@ function stopPreviewAnim(): void {
   }
 }
 
+function clearPreviewImage(img: HTMLImageElement | null): void {
+  if (!img) return;
+  const prev = img.dataset.blobUrl;
+  if (prev) URL.revokeObjectURL(prev);
+  delete img.dataset.blobUrl;
+  img.removeAttribute('src');
+  img.alt = '';
+}
+
 async function updateLocalPreviewSingle(
   phrase: string,
   img: HTMLImageElement | null,
@@ -55,16 +70,29 @@ async function updateLocalPreviewSingle(
   img.alt = s.title;
 }
 
-async function runLocalPreview(phrase: string, img: HTMLImageElement | null): Promise<void> {
+async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void> {
   stopPreviewAnim();
-  const slideOpts = slideOptsFromUI();
-  const slides = phraseToSlides(phrase || ' ', slideOpts);
-  const label = document.getElementById('ev-sign-preview-label');
-
+  const { img, placeholder, label } = els;
   if (!img) return;
 
+  const text = rawInput.trim();
+
+  if (text === '') {
+    clearPreviewImage(img);
+    img.hidden = true;
+    if (placeholder) placeholder.hidden = false;
+    if (label) label.textContent = 'preview';
+    return;
+  }
+
+  if (placeholder) placeholder.hidden = true;
+  img.hidden = false;
+
+  const slideOpts = slideOptsFromUI();
+  const slides = phraseToSlides(text, slideOpts);
+
   if (!previewAnimEnabled() || slides.length <= 1) {
-    await updateLocalPreviewSingle(phrase || ' ', img, slideOpts, 0);
+    await updateLocalPreviewSingle(text, img, slideOpts, 0);
     if (label) {
       label.textContent =
         slides.length > 1 ? `preview · slide 1 of ${slides.length}` : 'preview';
@@ -74,7 +102,7 @@ async function runLocalPreview(phrase: string, img: HTMLImageElement | null): Pr
 
   let idx = 0;
   const tick = async () => {
-    await updateLocalPreviewSingle(phrase || ' ', img, slideOpts, idx);
+    await updateLocalPreviewSingle(text, img, slideOpts, idx);
     if (label) label.textContent = `preview · animate ${idx + 1}/${slides.length}`;
     idx = (idx + 1) % slides.length;
   };
@@ -89,9 +117,13 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
   const btnSend = document.getElementById('ev-sign-send') as HTMLButtonElement | null;
   const btnSpeak = document.getElementById('ev-sign-speak') as HTMLButtonElement | null;
   const preview = document.getElementById('ev-sign-preview') as HTMLImageElement | null;
+  const placeholder = document.getElementById('ev-sign-preview-placeholder');
+  const label = document.getElementById('ev-sign-preview-label');
   const out = document.getElementById('ev-sign-out') as HTMLPreElement | null;
   const chkCompact = document.getElementById('ev-sign-compact') as HTMLInputElement | null;
   const chkAnim = document.getElementById('ev-sign-anim') as HTMLInputElement | null;
+
+  const previewEls: PreviewEls = { img: preview, placeholder, label };
 
   if (panel) panel.hidden = false;
 
@@ -106,7 +138,7 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
     log('No Even bridge (open in Even app or use ?pc=1 for browser-only preview).');
   }
 
-  const refreshPreview = () => void runLocalPreview(ta?.value || ' ', preview);
+  const refreshPreview = () => void runLocalPreview(ta?.value ?? '', previewEls);
 
   const send = async () => {
     const text = ta?.value?.trim() ?? '';
@@ -115,7 +147,7 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
     if (bridge) {
       await displayPhraseOnGlasses(text);
     }
-    await runLocalPreview(text || ' ', preview);
+    await runLocalPreview(text, previewEls);
     const n = phraseToSlides(text || ' ', slideOpts).length;
     log(bridge ? `Sent ${n} slide(s) to glasses.` : `Preview · ${n} slide(s) · add bridge to push to G2.`);
   };
@@ -124,6 +156,8 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
 
   chkCompact?.addEventListener('change', refreshPreview);
   chkAnim?.addEventListener('change', refreshPreview);
+
+  ta?.addEventListener('input', refreshPreview);
 
   let rec: SpeechRecognition | null = null;
   btnSpeak?.addEventListener('click', () => {
