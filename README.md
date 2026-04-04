@@ -1,4 +1,4 @@
-# EvenSign
+# Even Sign
 
 A small **Even Hub** page for **Even G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (280×120) plus a status line, shipped through the official SDK. Navigation is charmingly retro—**Prev**, **Next**, **Close**—because your nose is not a trackpad.
 
