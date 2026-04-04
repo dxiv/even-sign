@@ -1,0 +1,32 @@
+{
+  "name": "evensign",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Even hub page: phrase → slides, PNG to G2.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dxiv/evensign.git"
+  },
+  "type": "module",
+  "keywords": ["even-realities", "even-g2", "even-hub"],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "build:signs": "node scripts/build-sign-assets.mjs",
+    "build:words": "node scripts/build-word-signs.mjs",
+    "build:signs:all": "npm run build:signs && npm run build:words"
+  },
+  "dependencies": {
+    "@evenrealities/even_hub_sdk": "^0.0.9"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.3"
+  }
+}

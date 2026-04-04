@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output (never commit — may embed env values)
+dist/
+
+# Secrets & local configuration
+.env
+.env.*
+
+# Editor & OS
+.DS_Store
+Thumbs.db
+*.local
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Optional local source for npm run build:signs (Commons SVG; see public/signs/ATTRIBUTIONS.md)
+scripts/tmp-alphabet.svg
+
+# Logs & caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*

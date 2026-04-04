@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#030806" />
+    <meta
+      name="description"
+      content="EvenSign — phrases to slides for Even G2 (hub + SDK)."
+    />
+    <title>even sign · hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="ev-aurora" aria-hidden="true">
+      <div class="ev-aurora__base"></div>
+      <div class="ev-aurora__blob ev-aurora__blob--1"></div>
+      <div class="ev-aurora__blob ev-aurora__blob--2"></div>
+      <div class="ev-aurora__blob ev-aurora__blob--3"></div>
+      <div class="ev-aurora__mesh"></div>
+      <div class="ev-aurora__orb ev-aurora__orb--ring"></div>
+      <div class="ev-aurora__dither"></div>
+      <div class="ev-aurora__grid"></div>
+      <div class="ev-aurora__vignette"></div>
+      <div class="ev-aurora__noise"></div>
+    </div>
+
+    <div class="ev-stage">
+      <div class="ev-shell">
+        <header class="ev-header">
+          <p class="ev-kicker mono">Even Hub · phrase → slides · G2</p>
+        </header>
+
+        <main class="ev-main">
+          <p id="loading-line" class="ev-boot mono" aria-live="polite">connecting…</p>
+
+          <h1 class="ev-hero mono">
+            <span class="ev-hero__hash">#</span>
+            <span class="ev-hero__even">EVEN</span><span class="ev-hero__sign">sign</span>
+          </h1>
+          <p class="ev-lede mono">Slides on the glasses.</p>
+
+          <article id="ev-sign-panel" class="hub-card ev-panel" hidden>
+            <header class="hub-card__titlebar ev-panel__head">
+              <div class="hub-card__brand" aria-label="EvenSign">
+                <span class="hub-card__even">EVEN</span><span class="hub-card__sign">sign</span>
+              </div>
+              <span class="hub-card__pill">HUB</span>
+            </header>
+
+            <div class="hub-card__main">
+              <p class="hub-card__hint mono">
+                Type or Speak · Ctrl+Enter send · Prev/Next on device · default: one letter per glossary word
+              </p>
+
+              <textarea
+                id="ev-sign-input"
+                class="ev-sign-input mono"
+                rows="3"
+                placeholder="e.g. hello thank you"
+                spellcheck="true"
+              ></textarea>
+
+              <div class="ev-sign-actions">
+                <button type="button" id="ev-sign-send" class="hub-capture mono">Send to glasses</button>
+                <button type="button" id="ev-sign-speak" class="hub-capture hub-capture--ghost mono">
+                  Speak
+                </button>
+              </div>
+
+              <div class="ev-sign-toggles mono" role="group" aria-label="Options">
+                <label class="ev-sign-opt">
+                  <input type="checkbox" id="ev-sign-compact" />
+                  Compact glossary (one slide per word)
+                </label>
+                <label class="ev-sign-opt">
+                  <input type="checkbox" id="ev-sign-anim" />
+                  Animate preview
+                </label>
+              </div>
+
+              <div class="ev-sign-preview-wrap">
+                <span id="ev-sign-preview-label" class="ev-sign-preview-label mono">preview</span>
+                <img id="ev-sign-preview" class="ev-sign-preview" alt="" width="280" height="120" />
+              </div>
+
+              <section class="hub-console ev-console" aria-label="Status">
+                <div class="hub-console__label mono">status</div>
+                <div class="hub-console__body mono">
+                  <span class="hub-console__prompt">evensign%</span>
+                  <pre id="ev-sign-out" class="hub-console__pre"></pre>
+                </div>
+              </section>
+            </div>
+          </article>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
