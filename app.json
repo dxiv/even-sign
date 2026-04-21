@@ -6,6 +6,16 @@
   "min_app_version": "2.0.0",
   "min_sdk_version": "0.0.10",
   "entrypoint": "index.html",
-  "permissions": [],
+  "permissions": [
+    {
+      "name": "phone-microphone",
+      "desc": "Uses the phone microphone when you tap Speak for speech-to-text."
+    },
+    {
+      "name": "network",
+      "desc": "Web Speech recognition may contact the browser vendor speech service over HTTPS.",
+      "whitelist": ["https://www.google.com", "https://www.gstatic.com"]
+    }
+  ],
   "supported_languages": ["en"]
 }
