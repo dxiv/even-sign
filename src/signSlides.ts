@@ -1,8 +1,21 @@
+/** How this slide should read on glasses — drives frame badges and pacing hints. */
+export type SignSlideKind = 'letter' | 'digit' | 'word' | 'placeholder' | 'other';
+
 export type SignSlide = {
   title: string;
   line: string;
   /** If set, load `words/{wordKey}.png` instead of deriving from title. */
   wordKey?: string;
+  /** Phrase token that mapped to this sign (compact glossary), for captions. */
+  wordToken?: string;
+  kind: SignSlideKind;
+  /**
+   * When spelling a multi-character token (glossary expansion or unknown word),
+   * the full token and position (for status + learning badges).
+   */
+  spellOf?: string;
+  spellIndex?: number;
+  spellOfLen?: number;
 };
 
 type WordDef = { title: string; line: string; wordKey?: string };
@@ -107,7 +120,7 @@ export function phraseToSlides(phrase: string, opts?: PhraseToSlidesOptions): Si
   const compact = opts?.compactGlossary === true;
   const raw = phrase.trim();
   if (!raw) {
-    return [{ title: 'EVENSIGN', line: 'type or speak a phrase' }];
+    return [{ title: 'EVENSIGN', line: 'type or speak a phrase', kind: 'placeholder' }];
   }
 
   const slides: SignSlide[] = [];
@@ -115,32 +128,69 @@ export function phraseToSlides(phrase: string, opts?: PhraseToSlidesOptions): Si
     const hit = WORDS[w];
     if (hit) {
       if (compact) {
-        const slide: SignSlide = { title: hit.title, line: hit.line };
+        const slide: SignSlide = { title: hit.title, line: hit.line, kind: 'word', wordToken: w };
         if (hit.wordKey) slide.wordKey = hit.wordKey;
         slides.push(slide);
       } else {
         const letters = hit.title.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const n = letters.length;
+        let i = 0;
         for (const ch of letters) {
+          i += 1;
           if (ch >= 'A' && ch <= 'Z') {
-            slides.push({ title: ch, line: hit.line });
+            slides.push({
+              title: ch,
+              line: hit.line,
+              kind: 'letter',
+              spellOf: hit.title,
+              spellIndex: i,
+              spellOfLen: n,
+            });
           } else if (ch >= '0' && ch <= '9') {
-            slides.push({ title: ch, line: hit.line });
+            slides.push({
+              title: ch,
+              line: hit.line,
+              kind: 'digit',
+              spellOf: hit.title,
+              spellIndex: i,
+              spellOfLen: n,
+            });
           }
         }
       }
       continue;
     }
+    const tok = w.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const spellOf = tok.length > 1 ? tok : undefined;
+    const n = tok.length;
+    let i = 0;
     for (const ch of w.toUpperCase()) {
       if (ch >= 'A' && ch <= 'Z') {
-        slides.push({ title: ch, line: 'letter' });
+        i += 1;
+        slides.push({
+          title: ch,
+          line: 'letter',
+          kind: 'letter',
+          spellOf,
+          spellIndex: spellOf ? i : undefined,
+          spellOfLen: spellOf ? n : undefined,
+        });
       } else if (ch >= '0' && ch <= '9') {
-        slides.push({ title: ch, line: 'digit' });
+        i += 1;
+        slides.push({
+          title: ch,
+          line: 'digit',
+          kind: 'digit',
+          spellOf,
+          spellIndex: spellOf ? i : undefined,
+          spellOfLen: spellOf ? n : undefined,
+        });
       }
     }
   }
 
   if (slides.length === 0) {
-    return [{ title: '?', line: 'use letters A–Z' }];
+    return [{ title: '?', line: 'use letters A–Z', kind: 'other' }];
   }
   return slides;
 }

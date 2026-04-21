@@ -1,6 +1,6 @@
 # Even Sign
 
-A small **Even Hub** page for **Even G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (280×120) plus a status line, shipped through the official SDK. Navigation is charmingly retro—**Prev**, **Next**, **Close**—because your nose is not a trackpad.
+A small **Even Hub** page for **Even G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. Navigation is charmingly retro—**Prev**, **Next**, **Close**—because your nose is not a trackpad.
 
 This is a **hub integration**, not a replacement for a skilled interpreter. It does glossary words and fingerspelling-style slides; it will not win a prize for ASL grammar. It *will* put green-ish pixels where the hardware expects them.
 
@@ -22,6 +22,14 @@ npm run dev
 
 Open the URL Vite prints. For keyboard cred: **Ctrl+Enter** sends from the textarea.
 
+### Even Hub tooling
+
+- **`npm run dev`** — local Vite server (default `http://localhost:5173`).
+- **`npm run sim`** — after `npm run dev`, runs **`evenhub-simulator`** against the dev URL (see **`package.json`**). Use this for a quick **hub-store-style smoke** of layout + bridge without real glasses.
+- **`npm run hub:qr`** — prints a QR for sideloading the same URL via the Even hub CLI. Replace `localhost` with your machine’s LAN IP or hostname when loading on a **real device** on the network; `localhost` on the phone refers to the phone, not your PC.
+- **`app.json`** — Even Hub manifest at the repo root (`package_id`, edition, entrypoint, SDK floor, and so on). Keep `version` in sync with `package.json` when you release.
+- **`npm run pack:hub`** — runs a production build, then **`evenhub pack app.json dist -o evensign.ehpk`**. The **`evensign.ehpk`** file appears at the repo root (gitignored). In **Even Hub**, create or import a project from that package to install on glasses for device testing.
+
 **Production**
 
 ```bash
@@ -30,15 +38,36 @@ npm run build
 
 Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 
+### Beta / release hygiene
+
+- **`package.json`** and **`app.json`** versions should match (currently **1.1.0**). Even Hub’s **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix).
+- **`npm run test`** — Vitest unit tests under `src/**/*.test.ts`. **`npm run build`** runs tests, then Typecheck + Vite.
+- **CI** — `.github/workflows/ci.yml` runs `npm ci` and `npm run build` on push/PR to `main` or `master`.
+- **Fonts** — JetBrains Mono is loaded from Google Fonts in `index.html` (network + third party). Self-host for stricter offline policies.
+- **Speech** — the Speak button uses the Web Speech API; recognition may be handled by the browser/OS (sometimes cloud). See the in-app status line when listening.
+
 ---
 
 ## How it works (short version)
 
-1. Phrases are tokenised and matched against a glossary in **`src/signSlides.ts`**.
-2. By default, each glossary hit becomes **one slide per letter**, using art under **`public/signs/alphabet/`** and **`public/signs/numbers/`**.
-3. Enable **Compact glossary** in the UI for **one slide per word**, using strips in **`public/signs/words/`** when present.
-4. Unknown words are spelled out (A–Z / 0–9). Missing images fall back to a canvas slide—ugly but honest.
-5. Raster art is **green-channel–biased** for the display pipeline; regenerate with the scripts below if you swap the source SVG.
+1. Phrases are tokenised and matched against **`const WORDS`** in **`src/signSlides.ts`**.
+2. By default the UI has **word signs when available** (same as “compact glossary”): one slide per known phrase when **`public/signs/words/`** has art — better for real chats than spelling every letter.
+3. Turn that off to **spell glossary words letter-by-letter** (practice / slow decoding), using **`public/signs/alphabet/`** and **`public/signs/numbers/`**.
+4. Unknown words are spelled out (A–Z / 0–9). Each slide gets a **small status bar** (LETTER / NUMBER / WORD, plus spell progress when you are inside a word) and the final bitmap is **flattened to G2 green** (R/B zero, G = luminance) in the browser so previews match glasses.
+5. **Preview timing** is a bit faster when the deck is only letters and digits (fingerspelling), slower when it mixes **word** slides.
+6. **Close** on the device swaps the nav row to **Yes / No**. **Double-tap Yes** exits; **No** restores **Prev / Next / Close**.
+7. After **Send**, **Alt+←** / **Alt+→** (when focus is not in a text field) steps slides in the **preview** the same way as glasses **Prev** / **Next**—handy on desktop hub where there is no ring.
+
+### Openly licensed sources for sharper art (you swap files, then rebuild)
+
+These are **not** bundled automatically; verify each file’s license on Commons before shipping.
+
+- **[Category:ASL letters](https://commons.wikimedia.org/wiki/Category:ASL_letters)** — many **per-letter SVGs** (often public domain). You can rasterise them with your own script into `public/signs/alphabet/` (match **`src/signDimensions.json`** and run through **`scripts/sign-green.mjs`** logic or reuse `build-sign-assets` patterns).
+- **[Asl alphabet gallaudet ann.svg](https://commons.wikimedia.org/wiki/File:Asl_alphabet_gallaudet_ann.svg)** — **CC0** full chart (sometimes cleaner than the classic Gallaudet file); save as **`scripts/tmp-alphabet.svg`** and run **`npm run build:signs`**.
+- **[Asl alphabet gallaudet.svg](https://commons.wikimedia.org/wiki/File:Asl_alphabet_gallaudet.svg)** — the chart this repo’s crop script targets (CC0).
+- **ASL alphabet datasets** (ML photos, variable quality): [Kaggle ASL alphabet (CC0)](https://www.kaggle.com/datasets/debashishsau/aslamerican-sign-language-aplhabet-dataset), [Roboflow ASL letters](https://public.roboflow.com/object-detection/american-sign-language-letters) (public domain). Useful if you train a custom exporter—not drop-in art for every word in ASL.
+
+**ASL “real word” illustrations** (not fingerspelling) are rarely CC0 as a complete set. Sites like Lifeprint and Signing Savvy are usually **not** redistributable inside an app; prefer **your own** PNGs under `public/signs/words/` at the same size as **`signDimensions.json`**, or commission / license art.
 
 ---
 
@@ -47,11 +76,13 @@ Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 Download the Gallaudet alphabet SVG (see **`public/signs/ATTRIBUTIONS.md`**, CC0), save as **`scripts/tmp-alphabet.svg`** (gitignored), then:
 
 ```bash
-npm run build:signs      # alphabet + numbers PNGs
-npm run build:words      # word strips from those PNGs
+npm run build:signs      # alphabet + numbers PNGs from chart
+npm run build:words      # word strips from glyphs (see `const WORDS` in `src/signSlides.ts`)
 # or
 npm run build:signs:all
 ```
+
+**Glossary** — edit **`const WORDS`** in **`src/signSlides.ts`**, then run **`npm run build:words`** again.
 
 ---
 
@@ -62,11 +93,15 @@ npm run build:signs:all
 | `src/main.ts` | Bridge wait, boot |
 | `src/evenSignPage.ts` | Input, speech, preview, toggles |
 | `src/evenSignBridge.ts` | SDK layout, list events, image queue |
-| `src/signSlides.ts` | Phrase → slide list |
+| `src/signSlides.ts` | Phrase → slide list; **`const WORDS`** glossary |
 | `src/signRender.ts` | PNG bytes per slide |
-| `scripts/build-sign-assets.mjs` | SVG → glyphs |
-| `scripts/build-word-signs.mjs` | Glossary composites |
-| `scripts/sign-green.mjs` | Green pass for device constraints |
+| `src/signConstants.ts` | Slide + glasses layout constants; **`assertGlassesLayout()`** |
+| `src/signDimensions.json` | Authoritative **SIGN_IMAGE_WIDTH** / **HEIGHT** for app + `npm run build:signs` |
+| `scripts/build-sign-assets.mjs` | Gallaudet SVG → `alphabet/` + `numbers/` PNGs |
+| `scripts/build-word-signs.mjs` | Glossary composites (multi-row + min glyph height for G2 readability) |
+| `scripts/sign-green.mjs` | R/B → 0, G ← luminance for G2 |
+| `vitest.config.ts` | Unit test runner config |
+| `.github/workflows/ci.yml` | CI build |
 
 ---
 

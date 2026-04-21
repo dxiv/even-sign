@@ -1,14 +1,19 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk';
 import {
   displayPhraseOnGlasses,
+  getGlassesSlideIndex,
+  glassesNavRelative,
   runEvenSignOnBridge,
   setPhraseSlideOptions,
+  setSlideToPngOptions,
 } from './evenSignBridge';
-import { phraseToSlides, type PhraseToSlidesOptions } from './signSlides';
-import { slideToPngBytes } from './signRender';
+import { phraseToSlides, type PhraseToSlidesOptions, type SignSlide } from './signSlides';
+import { slideToPngBytes, type SlideToPngOptions } from './signRender';
 
 type InitOpts = {
   bridge: EvenAppBridge | null;
+  /** When `bridge` is null, why (clearer than a generic “no bridge” line). */
+  bridgeAbsentReason?: 'browser' | 'timeout';
 };
 
 type PreviewEls = {
@@ -16,6 +21,9 @@ type PreviewEls = {
   placeholder: HTMLElement | null;
   label: HTMLElement | null;
 };
+
+const LS_COMPACT = 'evensign_compact';
+const LS_CAPTIONS = 'evensign_captions';
 
 function getSpeechRecognition(): SpeechRecognition | null {
   const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -27,16 +35,82 @@ function slideOptsFromUI(): PhraseToSlidesOptions {
   return { compactGlossary: compact?.checked === true };
 }
 
+function slideToPngOptsFromUI(): SlideToPngOptions {
+  const cap = document.getElementById('ev-sign-captions') as HTMLInputElement | null;
+  return { showCaptions: cap?.checked !== false };
+}
+
+function syncBridgeRenderingFromUi(): void {
+  setPhraseSlideOptions(slideOptsFromUI());
+  setSlideToPngOptions(slideToPngOptsFromUI());
+}
+
+function applyStoredToggle(el: HTMLInputElement | null, key: string, defaultOn: boolean): void {
+  if (!el) return;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === '0') el.checked = false;
+    else if (raw === '1') el.checked = true;
+    else el.checked = defaultOn;
+  } catch {
+    el.checked = defaultOn;
+  }
+}
+
+function persistToggle(key: string, checked: boolean): void {
+  try {
+    localStorage.setItem(key, checked ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+function insertSnippet(ta: HTMLTextAreaElement, snippet: string): void {
+  const s = snippet.trim();
+  if (!s) return;
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
+  const pad = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
+  const insert = `${pad}${s}`;
+  ta.value = before + insert + after;
+  const caret = (before + insert).length;
+  ta.selectionStart = ta.selectionEnd = caret;
+  ta.focus();
+}
+
 function previewAnimEnabled(): boolean {
   const el = document.getElementById('ev-sign-anim') as HTMLInputElement | null;
   return el?.checked === true;
 }
 
+/** Fingerspell trains faster than mixed letter + word slides. */
+function previewStepMs(slides: SignSlide[]): number {
+  if (slides.length <= 1) {
+    return 720;
+  }
+  const allFingerspell = slides.every((s) => s.kind === 'letter' || s.kind === 'digit');
+  return allFingerspell ? 520 : 780;
+}
+
+/** Dwell longer on word slides and add a gap before the next word (chat-style pacing). */
+function previewDelayAfterSlide(slides: SignSlide[], indexShown: number): number {
+  const s = slides[indexShown % slides.length];
+  const base = previewStepMs(slides);
+  if (s.kind !== 'word') return base;
+  const extraDwell = 1400;
+  const next = slides[(indexShown + 1) % slides.length];
+  const betweenWords = next.kind === 'word' ? 700 : 0;
+  return base + extraDwell + betweenWords;
+}
+
 let previewTimer = 0;
+let previewAnimGen = 0;
 
 function stopPreviewAnim(): void {
   if (previewTimer) {
-    clearInterval(previewTimer);
+    clearTimeout(previewTimer);
     previewTimer = 0;
   }
 }
@@ -55,12 +129,13 @@ async function updateLocalPreviewSingle(
   img: HTMLImageElement | null,
   slideOpts: PhraseToSlidesOptions,
   slideIdx: number,
+  pngOpts: SlideToPngOptions,
 ): Promise<void> {
   if (!img) return;
   const slides = phraseToSlides(phrase, slideOpts);
   if (slides.length === 0) return;
   const s = slides[slideIdx % slides.length];
-  const bytes = await slideToPngBytes(s);
+  const bytes = await slideToPngBytes(s, pngOpts);
   const blob = new Blob([bytes], { type: 'image/png' });
   const url = URL.createObjectURL(blob);
   const prev = img.dataset.blobUrl;
@@ -72,6 +147,9 @@ async function updateLocalPreviewSingle(
 
 async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void> {
   stopPreviewAnim();
+  previewAnimGen++;
+  const gen = previewAnimGen;
+
   const { img, placeholder, label } = els;
   if (!img) return;
 
@@ -81,7 +159,7 @@ async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void>
     clearPreviewImage(img);
     img.hidden = true;
     if (placeholder) placeholder.hidden = false;
-    if (label) label.textContent = 'preview';
+    if (label) label.textContent = 'Preview';
     return;
   }
 
@@ -89,29 +167,46 @@ async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void>
   img.hidden = false;
 
   const slideOpts = slideOptsFromUI();
+  const pngOpts = slideToPngOptsFromUI();
   const slides = phraseToSlides(text, slideOpts);
 
   if (!previewAnimEnabled() || slides.length <= 1) {
-    await updateLocalPreviewSingle(text, img, slideOpts, 0);
+    await updateLocalPreviewSingle(text, img, slideOpts, 0, pngOpts);
     if (label) {
       label.textContent =
-        slides.length > 1 ? `preview · slide 1 of ${slides.length}` : 'preview';
+        slides.length > 1
+          ? `Preview · slide 1 of ${slides.length} · enable Animate to auto-play, or Alt+←/→ after Send`
+          : 'Preview';
     }
     return;
   }
 
   let idx = 0;
-  const tick = async () => {
-    await updateLocalPreviewSingle(text, img, slideOpts, idx);
-    if (label) label.textContent = `preview · animate ${idx + 1}/${slides.length}`;
+  const step = async (): Promise<void> => {
+    if (gen !== previewAnimGen) return;
+    await updateLocalPreviewSingle(text, img, slideOpts, idx, pngOpts);
+    if (gen !== previewAnimGen) return;
+    const s = slides[idx % slides.length];
+    const kindHint =
+      s.kind === 'word' ? 'word' : s.kind === 'letter' ? 'letter' : s.kind === 'digit' ? 'number' : s.kind;
+    if (label) {
+      label.textContent = `Preview · ${idx + 1}/${slides.length} · ${kindHint}`;
+    }
+    const delay = previewDelayAfterSlide(slides, idx);
     idx = (idx + 1) % slides.length;
+    previewTimer = window.setTimeout(() => void step(), delay);
   };
-  await tick();
-  previewTimer = window.setInterval(() => void tick(), 1000);
+  await step();
+}
+
+function logLine(out: HTMLPreElement | null, message: string, error: boolean): void {
+  if (!out) return;
+  out.textContent = message;
+  out.classList.toggle('even-out--error', error);
 }
 
 export async function initEvenSignPage(opts: InitOpts): Promise<void> {
-  const { bridge } = opts;
+  const { bridge, bridgeAbsentReason } = opts;
   const panel = document.getElementById('ev-sign-panel');
   const ta = document.getElementById('ev-sign-input') as HTMLTextAreaElement | null;
   const btnSend = document.getElementById('ev-sign-send') as HTMLButtonElement | null;
@@ -121,49 +216,113 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
   const label = document.getElementById('ev-sign-preview-label');
   const out = document.getElementById('ev-sign-out') as HTMLPreElement | null;
   const chkCompact = document.getElementById('ev-sign-compact') as HTMLInputElement | null;
+  const chkCaptions = document.getElementById('ev-sign-captions') as HTMLInputElement | null;
   const chkAnim = document.getElementById('ev-sign-anim') as HTMLInputElement | null;
+  const quickRow = document.getElementById('ev-sign-quick');
 
   const previewEls: PreviewEls = { img: preview, placeholder, label };
 
   if (panel) panel.hidden = false;
 
-  const log = (s: string) => {
-    if (out) out.textContent = s;
-  };
+  applyStoredToggle(chkCompact, LS_COMPACT, false);
+  applyStoredToggle(chkCaptions, LS_CAPTIONS, true);
+  syncBridgeRenderingFromUi();
+
+  const log = (s: string) => logLine(out, s, false);
+  const logErr = (s: string) => logLine(out, s, true);
+
+  let glassesUiOk = false;
 
   if (bridge) {
-    await runEvenSignOnBridge(bridge);
-    log('Glasses UI ready · Prev/Next/Close on device · send phrases from here.');
+    const started = await runEvenSignOnBridge(bridge);
+    if (started.ok) {
+      glassesUiOk = true;
+      log(
+        'Ready. On G2 use Prev / Next / Close. Close asks to exit — double-tap Yes to leave, No to stay.',
+      );
+    } else {
+      logErr(started.error);
+    }
+  } else if (bridgeAbsentReason === 'browser') {
+    log('Preview only (?pc=1). Connect from the Even app to send signs to glasses.');
+  } else if (bridgeAbsentReason === 'timeout') {
+    logErr(
+      'Even bridge did not connect in time. Open this page inside the Even app, or use ?pc=1 for preview only.',
+    );
   } else {
-    log('No Even bridge (open in Even app or use ?pc=1 for browser-only preview).');
+    log('Open in the Even app to use glasses, or add ?pc=1 to try the UI in a normal browser.');
   }
 
   const refreshPreview = () => void runLocalPreview(ta?.value ?? '', previewEls);
 
   const send = async () => {
-    const text = ta?.value?.trim() ?? '';
-    const slideOpts = slideOptsFromUI();
-    setPhraseSlideOptions(slideOpts);
-    if (bridge) {
-      await displayPhraseOnGlasses(text);
+    if (btnSend?.dataset.sending === '1') return;
+    if (btnSend) {
+      btnSend.dataset.sending = '1';
+      btnSend.disabled = true;
     }
-    await runLocalPreview(text, previewEls);
-    const n = phraseToSlides(text || ' ', slideOpts).length;
-    log(bridge ? `Sent ${n} slide(s) to glasses.` : `Preview · ${n} slide(s) · add bridge to push to G2.`);
+    try {
+      const text = ta?.value?.trim() ?? '';
+      syncBridgeRenderingFromUi();
+
+      let statusErr: string | null = null;
+      if (bridge && glassesUiOk) {
+        const pushed = await displayPhraseOnGlasses(text);
+        if (!pushed.ok) statusErr = pushed.error;
+      } else if (bridge && !glassesUiOk) {
+        statusErr = 'Glasses UI did not finish starting; preview updated only.';
+      }
+
+      await runLocalPreview(text, previewEls);
+      const n = phraseToSlides(text || ' ', slideOptsFromUI()).length;
+
+      if (statusErr) {
+        logErr(statusErr);
+      } else if (bridge && glassesUiOk) {
+        log(`Sent ${n} slide(s) to your glasses.`);
+      } else {
+        log(`Preview updated · ${n} slide(s).`);
+      }
+    } finally {
+      if (btnSend) {
+        btnSend.dataset.sending = '0';
+        btnSend.disabled = false;
+      }
+    }
   };
 
   btnSend?.addEventListener('click', () => void send());
 
-  chkCompact?.addEventListener('change', refreshPreview);
+  chkCompact?.addEventListener('change', () => {
+    persistToggle(LS_COMPACT, chkCompact.checked);
+    syncBridgeRenderingFromUi();
+    refreshPreview();
+  });
+  chkCaptions?.addEventListener('change', () => {
+    persistToggle(LS_CAPTIONS, chkCaptions.checked);
+    syncBridgeRenderingFromUi();
+    refreshPreview();
+  });
   chkAnim?.addEventListener('change', refreshPreview);
 
   ta?.addEventListener('input', refreshPreview);
+
+  if (quickRow && ta) {
+    quickRow.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement).closest('button[data-snippet]');
+      if (!t || !(t instanceof HTMLButtonElement)) return;
+      const snippet = t.dataset.snippet;
+      if (!snippet) return;
+      insertSnippet(ta, snippet);
+      refreshPreview();
+    });
+  }
 
   let rec: SpeechRecognition | null = null;
   btnSpeak?.addEventListener('click', () => {
     const R = getSpeechRecognition();
     if (!R) {
-      log('Speech input needs Chrome/Edge Web Speech API.');
+      log('Speech needs a browser with the Web Speech API (e.g. Chrome or Edge).');
       return;
     }
     if (rec) {
@@ -190,7 +349,7 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
     rec.onerror = () => {
       btnSpeak.textContent = 'Speak';
       rec = null;
-      log('Speech recognition error — try typing instead.');
+      log('Speech recognition failed — try typing instead.');
     };
     rec.onend = () => {
       if (btnSpeak.textContent === 'Stop') btnSpeak.textContent = 'Speak';
@@ -202,7 +361,7 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
       log('Listening…');
     } catch {
       btnSpeak.textContent = 'Speak';
-      log('Could not start microphone.');
+      log('Could not start the microphone.');
     }
   });
 
@@ -214,6 +373,27 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
       }
     });
   }
+
+  const onHubKeynav = (e: KeyboardEvent) => {
+    if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    const target = e.target;
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) return;
+    e.preventDefault();
+    void (async () => {
+      await glassesNavRelative(e.key === 'ArrowLeft' ? -1 : 1);
+      const phrase = ta?.value?.trim() ?? '';
+      if (!phrase || !preview) return;
+      const so = slideOptsFromUI();
+      const po = slideToPngOptsFromUI();
+      const sl = phraseToSlides(phrase, so);
+      if (sl.length === 0) return;
+      await updateLocalPreviewSingle(phrase, preview, so, getGlassesSlideIndex() % sl.length, po);
+      if (label) {
+        label.textContent = `Preview · ${getGlassesSlideIndex() + 1}/${sl.length} (glasses)`;
+      }
+    })();
+  };
+  document.addEventListener('keydown', onHubKeynav);
 
   await refreshPreview();
 }

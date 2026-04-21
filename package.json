@@ -1,6 +1,6 @@
 {
   "name": "evensign",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Even hub page: phrase → slides, PNG to G2.",
   "license": "MIT",
@@ -15,18 +15,26 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "build": "npm run test && tsc --noEmit && vite build",
     "preview": "vite preview",
+    "sim": "evenhub-simulator http://localhost:5173",
+    "hub:qr": "evenhub qr --url http://localhost:5173",
     "build:signs": "node scripts/build-sign-assets.mjs",
     "build:words": "node scripts/build-word-signs.mjs",
-    "build:signs:all": "npm run build:signs && npm run build:words"
+    "build:signs:all": "npm run build:signs && npm run build:words",
+    "pack:hub": "npm run build && npx evenhub pack app.json dist -o evensign.ehpk",
+    "hub:icon": "node scripts/generate-hub-icon.mjs"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.9"
+    "@evenrealities/even_hub_sdk": "^0.0.10"
   },
   "devDependencies": {
+    "@evenrealities/evenhub-cli": "^0.1.13",
+    "@evenrealities/evenhub-simulator": "^0.7.3",
     "sharp": "^0.34.5",
     "typescript": "~5.7.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^3.2.4"
   }
 }

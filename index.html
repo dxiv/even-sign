@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#030806" />
     <meta
       name="description"
-      content="EvenSign — phrases to slides for Even G2 (hub + SDK)."
+      content="EvenSign — quick phrases and fingerspelling on Even G2 glasses."
     />
     <title>even sign · hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -33,7 +33,7 @@
     <div class="ev-stage">
       <div class="ev-shell">
         <header class="ev-header">
-          <p class="ev-kicker mono">Even Hub · phrase → slides · G2</p>
+          <p class="ev-kicker mono">Even Hub · G2</p>
         </header>
 
         <main class="ev-main">
@@ -43,7 +43,7 @@
             <span class="ev-hero__hash">#</span>
             <span class="ev-hero__even">EVEN</span><span class="ev-hero__sign">sign</span>
           </h1>
-          <p class="ev-lede mono">Slides on the glasses.</p>
+          <p class="ev-lede mono">Short phrases on your glasses — word signs when we have them, fingerspelling for the rest.</p>
 
           <article id="ev-sign-panel" class="hub-card ev-panel" hidden>
             <header class="hub-card__titlebar ev-panel__head">
@@ -54,20 +54,40 @@
             </header>
 
             <div class="hub-card__main">
-              <p class="hub-card__hint mono">
-                Type or Speak · Ctrl+Enter send · Prev/Next on device · default: one letter per glossary word
+              <p class="hub-card__hint mono ev-sign-lead">
+                Type or use <strong>Speak</strong>, then <strong>Send</strong> (or
+                <kbd class="ev-kbd">Ctrl</kbd>+<kbd class="ev-kbd">Enter</kbd>). On G2 use the list
+                <strong>Prev</strong> / <strong>Next</strong>. After a send, <kbd class="ev-kbd">Alt</kbd>+<kbd class="ev-kbd">←</kbd> /
+                <kbd class="ev-kbd">→</kbd> (outside the text box) matches glasses slides in the preview.
+              </p>
+              <p class="hub-card__hint mono ev-sign-disclaimer">
+                Aid only — not a certified interpreter or emergency service. Typed text stays on this page until you send. Speech
+                may use your browser or device recognizer.
               </p>
 
               <textarea
                 id="ev-sign-input"
                 class="ev-sign-input mono"
                 rows="3"
-                placeholder="e.g. hello thank you"
+                placeholder="hello please thank you"
                 spellcheck="true"
               ></textarea>
 
+              <div id="ev-sign-quick" class="ev-sign-quick mono" role="group" aria-label="Insert phrase">
+                <span class="ev-sign-quick__label">Insert</span>
+                <button type="button" class="ev-sign-chip" data-snippet="hello">hello</button>
+                <button type="button" class="ev-sign-chip" data-snippet="thank you">thanks</button>
+                <button type="button" class="ev-sign-chip" data-snippet="please">please</button>
+                <button type="button" class="ev-sign-chip" data-snippet="yes">yes</button>
+                <button type="button" class="ev-sign-chip" data-snippet="no">no</button>
+                <button type="button" class="ev-sign-chip" data-snippet="help">help</button>
+                <button type="button" class="ev-sign-chip" data-snippet="sorry">sorry</button>
+                <button type="button" class="ev-sign-chip" data-snippet="bathroom">bathroom</button>
+                <button type="button" class="ev-sign-chip" data-snippet="water">water</button>
+              </div>
+
               <div class="ev-sign-actions">
-                <button type="button" id="ev-sign-send" class="hub-capture mono">Send to glasses</button>
+                <button type="button" id="ev-sign-send" class="hub-capture mono">Send to G2</button>
                 <button type="button" id="ev-sign-speak" class="hub-capture hub-capture--ghost mono">
                   Speak
                 </button>
@@ -76,26 +96,30 @@
               <div class="ev-sign-toggles mono" role="group" aria-label="Options">
                 <label class="ev-sign-opt">
                   <input type="checkbox" id="ev-sign-compact" />
-                  Compact glossary (one slide per word)
+                  One glossary slide per typed word (fewer slides; preview stays longer on each word)
+                </label>
+                <label class="ev-sign-opt">
+                  <input type="checkbox" id="ev-sign-captions" checked />
+                  Captions on each slide (letter vs word · turn off for a cleaner image)
                 </label>
                 <label class="ev-sign-opt">
                   <input type="checkbox" id="ev-sign-anim" checked />
-                  Animate preview (2+ slides)
+                  Animate preview when there are multiple slides
                 </label>
               </div>
 
               <div class="ev-sign-preview-wrap">
-                <span id="ev-sign-preview-label" class="ev-sign-preview-label mono">preview</span>
+                <span id="ev-sign-preview-label" class="ev-sign-preview-label mono">Preview</span>
                 <div class="ev-sign-preview-frame">
                   <div id="ev-sign-preview-placeholder" class="ev-sign-preview-placeholder mono">
-                    <span class="ev-sign-preview-brand__even">EVEN</span><span class="ev-sign-preview-brand__sign">sign</span>
+                    <span class="ev-sign-preview-hint">Your signs appear here</span>
                   </div>
                   <img
                     id="ev-sign-preview"
                     class="ev-sign-preview"
                     alt=""
-                    width="280"
-                    height="120"
+                    width="288"
+                    height="144"
                     hidden
                   />
                 </div>

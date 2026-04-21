@@ -4,7 +4,7 @@ export default defineConfig({
   root: '.',
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     target: 'es2022',
   },
   optimizeDeps: {

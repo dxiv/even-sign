@@ -11,16 +11,28 @@ function forceBrowserOnly(): boolean {
 async function main() {
   const loading = document.getElementById('loading-line');
 
-  const bridge = forceBrowserOnly()
-    ? null
-    : await Promise.race([
-        waitForEvenAppBridge(),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), BRIDGE_WAIT_MS)),
-      ]);
+  let bridge: Awaited<ReturnType<typeof waitForEvenAppBridge>> | null = null;
+  let bridgeAbsentReason: 'browser' | 'timeout' | undefined;
+
+  if (forceBrowserOnly()) {
+    bridgeAbsentReason = 'browser';
+  } else {
+    const raced = await Promise.race([
+      waitForEvenAppBridge().then((b) => ({ kind: 'bridge' as const, b })),
+      new Promise<{ kind: 'timeout' }>((resolve) =>
+        setTimeout(() => resolve({ kind: 'timeout' }), BRIDGE_WAIT_MS),
+      ),
+    ]);
+    if (raced.kind === 'timeout') {
+      bridgeAbsentReason = 'timeout';
+    } else {
+      bridge = raced.b;
+    }
+  }
 
   if (loading) loading.remove();
 
-  await initEvenSignPage({ bridge });
+  await initEvenSignPage({ bridge, bridgeAbsentReason });
 }
 
 void main().catch((e) => {

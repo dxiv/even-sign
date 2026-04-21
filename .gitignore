@@ -4,6 +4,9 @@ node_modules/
 # Build output (never commit — may embed env values)
 dist/
 
+# Even Hub installable (run `npm run pack:hub` locally)
+*.ehpk
+
 # Secrets & local configuration
 .env
 .env.*

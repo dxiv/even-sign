@@ -1,4 +1,4 @@
-// Gallaudet alphabet SVG → public/signs/alphabet|numbers/*.png (280×120, green channel). Needs scripts/tmp-alphabet.svg.
+// Gallaudet alphabet SVG → public/signs/alphabet|numbers/*.png (see src/signDimensions.json). Needs scripts/tmp-alphabet.svg.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,17 +12,60 @@ const OUT_DIR = path.join(ROOT, 'public', 'signs');
 const OUT_ALPHA = path.join(OUT_DIR, 'alphabet');
 const OUT_NUM = path.join(OUT_DIR, 'numbers');
 
-const TARGET_W = 280;
-const TARGET_H = 120;
+const SIGN_DIMS = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'signDimensions.json'), 'utf8'));
+const TARGET_W = SIGN_DIMS.SIGN_IMAGE_WIDTH;
+const TARGET_H = SIGN_DIMS.SIGN_IMAGE_HEIGHT;
 const RENDER_WIDTH = 3200;
 const VB_W = 210;
 const VB_H = 297;
 const SCALE = RENDER_WIDTH / VB_W;
 
-// Crop in root viewBox units (~one chart cell); label sits near bottom of box
-const CROP_UW = 34;
-const CROP_UH = 62;
+// Crop in root viewBox units (~one chart cell); label anchor sits near bottom.
+// Digits on the Gallaudet chart are packed tighter than letters — a letter-width crop
+// often includes the neighbouring numbers; use a narrower box for 0–9 only.
+const CROP_LETTER_UW = 34;
+const CROP_LETTER_UH = 62;
+// Tightest column pitch on the Gallaudet number row is ~13.8u (digits 1–2); wider crops there
+// show the next digit. Mid-row spacing is larger — those digits can use a wider box without triple-bleed.
+const CROP_NUMBER_UW_TIGHT = 11.75;
+const CROP_NUMBER_UH = 60;
 const LABEL_BELOW_BASELINE = 5;
+
+/** Horizontal crop width (root viewBox units) per digit; 1–2 stay tight, 0 and 3–9 use chart pitch headroom. */
+const NUMBER_CROP_UW = Object.freeze({
+  '0': 13.5,
+  '1': 12.45,
+  '2': CROP_NUMBER_UW_TIGHT,
+  '3': 16.5,
+  '4': 17.5,
+  '5': 19.12,
+  '6': 14.25,
+  '7': 14.25,
+  '8': 16.75,
+  '9': 17.75,
+});
+
+/** Extra horizontal offset (root viewBox units) for digit crops; label is not always centred on the hand. */
+const NUMBER_CROP_SHIFT_U = Object.freeze({
+  '0': -0.85,
+  '1': 1.0,
+  '2': -0.65,
+  '3': 0.15,
+  '4': 0,
+  '5': 0.65,
+  '6': -0.65,
+  '7': 0,
+  '8': 0.85,
+  '9': -0.95,
+});
+
+function numberCropUw(ch) {
+  return NUMBER_CROP_UW[ch] ?? CROP_NUMBER_UW_TIGHT;
+}
+
+function numberCropShiftU(ch) {
+  return NUMBER_CROP_SHIFT_U[ch] ?? 0;
+}
 
 const IDENTITY = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
@@ -74,11 +117,11 @@ function parseGlyphPlacements(svg) {
   return byChar;
 }
 
-function userCropRect(x, y) {
+function userCropRect(x, y, cropUw, cropUh) {
   const bottom = y + LABEL_BELOW_BASELINE;
-  const top = bottom - CROP_UH;
-  const left = x - CROP_UW / 2;
-  const right = left + CROP_UW;
+  const top = bottom - cropUh;
+  const left = x - cropUw / 2;
+  const right = left + cropUw;
 
   const cl = Math.max(0, left);
   const cr = Math.min(VB_W, right);
@@ -131,7 +174,7 @@ async function keyWhiteTransparent(buf) {
 }
 
 async function compositeTransparentCanvas(signBuffer) {
-  const pad = 20;
+  const pad = Math.round(20 * (TARGET_W / 280));
   const scaled = await sharp(signBuffer)
     .resize(TARGET_W - pad, TARGET_H - pad, {
       fit: 'contain',
@@ -199,7 +242,11 @@ async function main() {
       continue;
     }
 
-    const u = userCropRect(p.x, p.y);
+    const isDigit = ch >= '0' && ch <= '9';
+    const cropUw = isDigit ? numberCropUw(ch) : CROP_LETTER_UW;
+    const cropUh = isDigit ? CROP_NUMBER_UH : CROP_LETTER_UH;
+    const cx = isDigit ? p.x + numberCropShiftU(ch) : p.x;
+    const u = userCropRect(cx, p.y, cropUw, cropUh);
     if (u.wu < 4 || u.hu < 4) {
       console.warn('skip (degenerate crop):', ch);
       continue;
