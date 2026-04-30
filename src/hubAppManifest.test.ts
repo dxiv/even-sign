@@ -17,6 +17,12 @@ describe('app.json Hub manifest', () => {
     expect(app.name).not.toMatch(/\beven\b/i);
   });
 
+  it('keeps package_id aligned with the existing Hub listing (evensign)', () => {
+    const raw = fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8');
+    const app = JSON.parse(raw) as { package_id: string };
+    expect(app.package_id).toBe('com.dxiv.evensign');
+  });
+
   it('declares microphone and optional speech network permissions', () => {
     const raw = fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8');
     const app = JSON.parse(raw) as { permissions: HubPermission[] };

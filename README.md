@@ -40,7 +40,7 @@ Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 
 ### Release hygiene
 
-- **`package.json`** and **`app.json`** versions should match (currently **1.1.1**). Hub **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix).
+- **`package.json`** and **`app.json`** versions should match (currently **1.1.2**). Hub **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix). **`package_id`** must stay **`com.dxiv.evensign`** so uploads match the original Hub store app (display name is still **Gloss** in `name`).
 - **`npm run test`** — Vitest unit tests under `src/**/*.test.ts`. **`npm run build`** runs tests, then Typecheck + Vite.
 - **CI** — `.github/workflows/ci.yml` runs `npm ci` and `npm run build` on push/PR to `main` or `master`.
 - **Fonts** — JetBrains Mono is loaded from Google Fonts in `index.html` (network + third party). Self-host for stricter offline policies.
