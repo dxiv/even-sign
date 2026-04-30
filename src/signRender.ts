@@ -12,6 +12,11 @@ const BAR_PAD_X = 5;
 export type SlideToPngOptions = {
   /** Letter / word captions on the slide (G2-safe green). Off = full sign area for the hand only. */
   showCaptions?: boolean;
+  /**
+   * Optional 1px inset stroke inside the slide PNG (under hand art, above flatten).
+   * Default off — 4‑bit panels can show banding; verify on hardware before enabling in product UI.
+   */
+  lensInsetFrame?: boolean;
 };
 
 /** Match `scripts/sign-green.mjs`: R/B → 0, G ← luminance (safe for G2). */
@@ -156,6 +161,7 @@ async function finalizeSlideCanvas(
   slide: SignSlide,
   draw: (c: CanvasRenderingContext2D, w: number, h: number, contentH: number) => void,
   showCaptions: boolean,
+  lensInsetFrame: boolean,
 ): Promise<Uint8Array> {
   const w = SIGN_IMAGE_WIDTH;
   const h = SIGN_IMAGE_HEIGHT;
@@ -168,6 +174,11 @@ async function finalizeSlideCanvas(
     return new Uint8Array();
   }
   c.clearRect(0, 0, w, h);
+  if (lensInsetFrame && contentH > 4) {
+    c.strokeStyle = 'rgb(0, 72, 0)';
+    c.lineWidth = 1;
+    c.strokeRect(1.5, 1.5, w - 3, contentH - 3);
+  }
   draw(c, w, h, contentH);
   if (showCaptions) {
     drawLearningBar(c, w, h, slide);
@@ -184,6 +195,7 @@ export async function slideToPngBytes(
   opts: SlideToPngOptions = {},
 ): Promise<Uint8Array> {
   const showCaptions = opts.showCaptions !== false;
+  const lensInsetFrame = opts.lensInsetFrame === true;
   const fromGlyph = await pngFromSignAsset(slide.title);
   if (fromGlyph && fromGlyph.length > 0) {
     const bmp = await bitmapFromPngBytes(fromGlyph);
@@ -195,6 +207,7 @@ export async function slideToPngBytes(
           bmp.close();
         },
         showCaptions,
+        lensInsetFrame,
       );
       return out;
     }
@@ -211,6 +224,7 @@ export async function slideToPngBytes(
           bmp.close();
         },
         showCaptions,
+        lensInsetFrame,
       );
       return out;
     }
@@ -237,5 +251,6 @@ export async function slideToPngBytes(
     c.globalAlpha = 1;
   },
     showCaptions,
+    lensInsetFrame,
   );
 }

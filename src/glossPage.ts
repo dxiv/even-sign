@@ -9,6 +9,7 @@ import {
   setSlideToPngOptions,
   stopGlassesAutoplay,
 } from './glossBridge';
+import { PHRASE_SNIPPET_CATEGORIES } from './phraseSnippets';
 import { phraseToSlides, type PhraseToSlidesOptions } from './signSlides';
 import { slideDeckDelayAfterSlide } from './slideDeckTiming';
 import { slideToPngBytes, type SlideToPngOptions } from './signRender';
@@ -66,6 +67,30 @@ function persistToggle(key: string, checked: boolean): void {
   } catch {
     /* ignore */
   }
+}
+
+function renderPhraseQuickChips(container: HTMLElement): void {
+  container.replaceChildren();
+  const frag = document.createDocumentFragment();
+  const insertLbl = document.createElement('span');
+  insertLbl.className = 'ev-sign-quick__label';
+  insertLbl.textContent = 'Insert';
+  frag.appendChild(insertLbl);
+  for (const cat of PHRASE_SNIPPET_CATEGORIES) {
+    const head = document.createElement('span');
+    head.className = 'ev-sign-quick__cat';
+    head.textContent = cat.title;
+    frag.appendChild(head);
+    for (const s of cat.snippets) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ev-sign-chip';
+      b.dataset.snippet = s.phrase;
+      b.textContent = s.label;
+      frag.appendChild(b);
+    }
+  }
+  container.appendChild(frag);
 }
 
 function insertSnippet(ta: HTMLTextAreaElement, snippet: string): void {
@@ -207,6 +232,10 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
 
   if (panel) panel.hidden = false;
 
+  if (quickRow) {
+    renderPhraseQuickChips(quickRow);
+  }
+
   applyStoredToggle(chkCompact, LS_COMPACT, false);
   applyStoredToggle(chkCaptions, LS_CAPTIONS, true);
   syncBridgeRenderingFromUi();
@@ -221,7 +250,7 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
     if (started.ok) {
       glassesUiOk = true;
       log(
-        'Ready. G2: Prev · Next · Replay · Clear · Phrases · Exit. Send replaces the deck. Double-tap list or Exit to leave.',
+        'Ready. G2: slim list on the left (swipe + tap). Prev · Next · Replay · Clear · Phrases · Exit. Big sign area on the right. Double-tap: home from slides/Phrases, then exit from idle. Exit anytime.',
       );
     } else {
       logErr(started.error);

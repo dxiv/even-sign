@@ -9,6 +9,14 @@ const ROOT = path.join(__dirname, '..');
 type HubPermission = { name: string; desc: string; whitelist?: string[] };
 
 describe('app.json Hub manifest', () => {
+  it('uses a store-safe display name (no “Even” in the app name field)', () => {
+    const raw = fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8');
+    const app = JSON.parse(raw) as { name: string };
+    expect(typeof app.name).toBe('string');
+    expect(app.name.length).toBeGreaterThanOrEqual(1);
+    expect(app.name).not.toMatch(/\beven\b/i);
+  });
+
   it('declares microphone and optional speech network permissions', () => {
     const raw = fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8');
     const app = JSON.parse(raw) as { permissions: HubPermission[] };

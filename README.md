@@ -1,6 +1,6 @@
 # Gloss
 
-A small **Even Hub** page for **Even G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. On-glasses navigation is **Prev**, **Next**, **Replay**, **Clear**, **Phrases**, **Exit** in one **full-width horizontal** row (equal column widths). **Phrases** swaps the row to the same quick snippets as the phone insert chips (`hello`, `thanks`, …) plus **Back**. A **compact** status line keeps the **sign image** as the focus. Each **Send** replaces the deck on glasses and returns the bar to **nav**.
+A small **Hub** page for **G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. On-glasses controls live in a **narrow vertical list on the left** (swipe to move selection, tap to act) so the **sign image** uses the wide area beside it. **Phrases** swaps the list to **topic categories** (A–Z), then **words inside each topic** (A–Z), matching the hub **Insert** chips in **`src/phraseSnippets.ts`** (100+ snippets). **Back** returns to nav from the category screen; **Up** returns to categories from a word list. A **compact** status strip sits under the slide. Each **Send** replaces the deck on glasses and returns the bar to **nav**.
 
 This is a **hub integration**, not a replacement for a skilled interpreter. It does glossary words and fingerspelling-style slides; it will not win a prize for ASL grammar. It *will* put green-ish pixels where the hardware expects them.
 
@@ -22,13 +22,13 @@ npm run dev
 
 Open the URL Vite prints. For keyboard cred: **Ctrl+Enter** sends from the textarea.
 
-### Even Hub tooling
+### Hub tooling
 
 - **`npm run dev`** — local Vite server (default `http://localhost:5173`).
 - **`npm run sim`** — after `npm run dev`, runs **`evenhub-simulator`** against the dev URL (see **`package.json`**). Use this for a quick **hub-store-style smoke** of layout + bridge without real glasses.
 - **`npm run hub:qr`** — prints a QR for sideloading the same URL via the Even hub CLI. Replace `localhost` with your machine’s LAN IP or hostname when loading on a **real device** on the network; `localhost` on the phone refers to the phone, not your PC.
-- **`app.json`** — Even Hub manifest at the repo root (`package_id`, edition, entrypoint, SDK floor, and so on). Keep `version` in sync with `package.json` when you release.
-- **`npm run pack:hub`** — runs a production build, then **`evenhub pack app.json dist -o gloss.ehpk`**. The **`gloss.ehpk`** file appears at the repo root (gitignored). In **Even Hub**, create or import a project from that package to install on glasses for device testing.
+- **`app.json`** — Hub manifest at the repo root (`package_id`, edition, entrypoint, SDK floor, optional **`description`** for the store listing, ≤2000 characters). Keep `version` in sync with `package.json` when you release. The same text lives in **`store-description.txt`** for easy copy-edit.
+- **`npm run pack:hub`** — runs a production build, then **`evenhub pack app.json dist -o gloss.ehpk`**. The **`gloss.ehpk`** file appears at the repo root (gitignored). In the **Hub** developer flow, create or import a project from that package to install on glasses for device testing.
 
 **Production**
 
@@ -40,7 +40,7 @@ Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 
 ### Release hygiene
 
-- **`package.json`** and **`app.json`** versions should match (currently **1.1.0**). Even Hub’s **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix).
+- **`package.json`** and **`app.json`** versions should match (currently **1.1.1**). Hub **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix).
 - **`npm run test`** — Vitest unit tests under `src/**/*.test.ts`. **`npm run build`** runs tests, then Typecheck + Vite.
 - **CI** — `.github/workflows/ci.yml` runs `npm ci` and `npm run build` on push/PR to `main` or `master`.
 - **Fonts** — JetBrains Mono is loaded from Google Fonts in `index.html` (network + third party). Self-host for stricter offline policies.
@@ -56,8 +56,9 @@ Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 4. Unknown words are spelled out (A–Z / 0–9). Each slide gets a **small status bar** (LETTER / NUMBER / WORD, plus spell progress when you are inside a word) and the final bitmap is **flattened to G2 green** (R/B zero, G = luminance) in the browser so previews match glasses.
 5. **Preview timing** is a bit faster when the deck is only letters and digits (fingerspelling), slower when it mixes **word** slides.
 6. With **Animate** enabled, after **Send** the glasses **auto-advance** through the same deck as the preview, using shared timing in **`src/slideDeckTiming.ts`**. **Replay** on glasses also turns on looping autoplay for the current deck (for use without the phone). **Prev** / **Next** (or hub **Alt+←/→**) pause auto-advance until the next **Send** or **Replay**. **Clear** wipes the glasses to the empty placeholder.
-7. **Exit** or a **double-tap** on the glasses list opens the **system exit prompt** (`shutDownPageContainer(1)` per Even Hub lifecycle).
-8. After **Send**, **Alt+←** / **Alt+→** (when focus is not in a text field) steps slides in the **preview** the same way as glasses **Prev** / **Next**—handy on desktop hub where there is no ring.
+7. The glasses **list is a vertical native widget** in a **left sidebar** (~100px wide): each label is a **row**; **swipe** moves selection, **tap** activates. **`glossBridge`** passes **`itemWidth: 0`** so firmware auto-sizes rows (per G2 list docs — avoids selection issues). **`glassesPanelLayout`** in **`src/signConstants.ts`** defines list geometry.
+8. **Exit** opens the **system exit prompt**. **Double-tap** the list: from **Phrases**, first double-tap returns to **main nav + idle**; from a slide deck on nav, first double-tap clears to **idle**; **double-tap again** on that idle home screen calls `shutDownPageContainer(1)` for the system exit confirmation ([page lifecycle](https://hub.evenrealities.com/docs/guides/page-lifecycle#methods)).
+9. After **Send**, **Alt+←** / **Alt+→** (when focus is not in a text field) steps slides in the **preview** the same way as glasses **Prev** / **Next**—handy on desktop hub where there is no ring.
 
 ### Openly licensed sources for sharper art (you swap files, then rebuild)
 

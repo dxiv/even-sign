@@ -13,23 +13,30 @@ import {
   TextContainerUpgrade,
 } from '@evenrealities/even_hub_sdk';
 import {
-  GLASSES_LIST,
-  GLASSES_TEXT,
   SIGN_IMAGE_HEIGHT,
   SIGN_IMAGE_WIDTH,
   assertGlassesLayout,
   glassesImageBox,
+  glassesPanelLayout,
 } from './signConstants';
+import {
+  PHRASE_GLASSES_CATEGORY_LIST_ITEMS,
+  PHRASE_GLASSES_MAX_LIST_ITEMS,
+  findPhraseCategoryByTitle,
+  findSnippetInCategory,
+  getPhraseCategoryTitles,
+} from './phraseSnippets';
 import { slideToPngBytes, type SlideToPngOptions } from './signRender';
 import { phraseToSlides, type PhraseToSlidesOptions, type SignSlide } from './signSlides';
 import { slideDeckDelayAfterSlide } from './slideDeckTiming';
 
+/** G2 list labels: short readable English (row width is tight; clarity beats opaque glyphs). */
 const ITEM_PREV = 'Prev';
 const ITEM_NEXT = 'Next';
 /** From first slide; restarts glasses autoplay when enabled. */
 const ITEM_REPLAY = 'Replay';
 const ITEM_CLEAR = 'Clear';
-/** Opens a second row of common phrases (same snippets as phone quick-insert). */
+/** Opens quick phrases (same snippets as phone quick-insert). */
 const ITEM_PHRASES = 'Phrases';
 const ITEM_EXIT = 'Exit';
 
@@ -42,26 +49,29 @@ const NAV_LIST_NAMES = [
   ITEM_EXIT,
 ] as const;
 
-/** Labels on glasses (short) → phrase text (matches `index.html` data-snippet chips). */
-const GLASS_PHRASE_CHIPS: readonly { label: string; phrase: string }[] = [
-  { label: 'hello', phrase: 'hello' },
-  { label: 'thanks', phrase: 'thank you' },
-  { label: 'please', phrase: 'please' },
-  { label: 'yes', phrase: 'yes' },
-  { label: 'no', phrase: 'no' },
-  { label: 'help', phrase: 'help' },
-  { label: 'sorry', phrase: 'sorry' },
-  { label: 'bath', phrase: 'bathroom' },
-  { label: 'water', phrase: 'water' },
-] as const;
+/** Keep in sync with `GLASSES_NAV_ITEM_COUNT` in `signConstants.ts`. */
+export const GLASSES_NAV_LIST_LEN = NAV_LIST_NAMES.length;
 
-const ITEM_PHRASE_BACK = 'Back';
+/** Category picker: last row returns to main nav list. */
+const ITEM_PHRASE_BACK_NAV = 'Back';
+/** Word picker: last row returns to category titles. */
+const ITEM_PHRASE_BACK_UP = 'Up';
 
-const PHRASE_LIST_NAMES = [...GLASS_PHRASE_CHIPS.map((c) => c.label), ITEM_PHRASE_BACK] as const;
+/** Longest list the glasses phrases UI builds (scrollable vertical list). */
+export const GLASSES_PHRASE_MAX_LIST_LEN = Math.max(
+  PHRASE_GLASSES_CATEGORY_LIST_ITEMS,
+  PHRASE_GLASSES_MAX_LIST_ITEMS,
+);
 
 type GlassesMenuMode = 'nav' | 'phrases';
 
+/** Two-step phrases UI: pick a category, then a snippet (A–Z within each). */
+type GlassesPhraseScreen =
+  | { kind: 'categories' }
+  | { kind: 'words'; categoryTitle: string };
+
 let glassesMenuMode: GlassesMenuMode = 'nav';
+let glassesPhraseScreen: GlassesPhraseScreen = { kind: 'categories' };
 
 function listEventType(ev: { eventType?: OsEventTypeList }): OsEventTypeList {
   return ev.eventType ?? OsEventTypeList.CLICK_EVENT;
@@ -72,8 +82,20 @@ function listEventType(ev: { eventType?: OsEventTypeList }): OsEventTypeList {
  * scroll events), without `currentSelectItemName`. Map index to the same labels as
  * `itemName` on the list container.
  */
+function glassesPhraseListItemNames(): string[] {
+  if (glassesPhraseScreen.kind === 'categories') {
+    return [...getPhraseCategoryTitles(), ITEM_PHRASE_BACK_NAV];
+  }
+  const cat = findPhraseCategoryByTitle(glassesPhraseScreen.categoryTitle);
+  if (!cat) {
+    glassesPhraseScreen = { kind: 'categories' };
+    return [...getPhraseCategoryTitles(), ITEM_PHRASE_BACK_NAV];
+  }
+  return [...cat.snippets.map((s) => s.label), ITEM_PHRASE_BACK_UP];
+}
+
 function glassesListNames(): readonly string[] {
-  return glassesMenuMode === 'nav' ? NAV_LIST_NAMES : PHRASE_LIST_NAMES;
+  return glassesMenuMode === 'nav' ? NAV_LIST_NAMES : glassesPhraseListItemNames();
 }
 
 export function resolvedListItemName(list: {
@@ -163,6 +185,14 @@ export type GlassesUiInitResult = { ok: true } | { ok: false; error: string };
 
 export type GlassesPushResult = { ok: true } | { ok: false; error: string };
 
+export type DisplayPhraseOnGlassesOpts = {
+  /**
+   * Phrase chosen on-glasses (Phrases row): auto-advance the deck like Replay/Animate when there is more than one slide.
+   * Skipped when the trimmed phrase is a single character (nothing to “step” meaningfully).
+   */
+  glassesPhraseAutoplay?: boolean;
+};
+
 export function setPhraseSlideOptions(opts: PhraseToSlidesOptions): void {
   phraseSlideOptions = { ...opts };
 }
@@ -193,15 +223,8 @@ function startupFailureMessage(code: StartUpPageCreateResult): string {
   }
 }
 
-/** Equal column width for the current list row (nav or phrases). */
-function listItemWidthForCount(n: number): number {
-  const L = GLASSES_LIST;
-  const inner = Math.max(0, L.w - 2 * L.paddingLength);
-  return Math.max(36, Math.floor(inner / Math.max(1, n)));
-}
-
 function navList(): ListContainerProperty {
-  const L = GLASSES_LIST;
+  const L = glassesPanelLayout().list;
   const names = [...NAV_LIST_NAMES];
   return new ListContainerProperty({
     xPosition: L.x,
@@ -216,7 +239,8 @@ function navList(): ListContainerProperty {
     containerName: CONTAINER_LIST,
     itemContainer: new ListItemContainerProperty({
       itemCount: names.length,
-      itemWidth: listItemWidthForCount(names.length),
+      /** `0` = firmware auto-fill row width (G2 list docs); avoids swipe/selection glitches with some fixed widths. */
+      itemWidth: 0,
       isItemSelectBorderEn: 1,
       itemName: names,
     }),
@@ -225,8 +249,8 @@ function navList(): ListContainerProperty {
 }
 
 function phrasesList(): ListContainerProperty {
-  const L = GLASSES_LIST;
-  const names = [...PHRASE_LIST_NAMES];
+  const L = glassesPanelLayout().list;
+  const names = glassesPhraseListItemNames();
   return new ListContainerProperty({
     xPosition: L.x,
     yPosition: L.y,
@@ -240,12 +264,21 @@ function phrasesList(): ListContainerProperty {
     containerName: CONTAINER_LIST,
     itemContainer: new ListItemContainerProperty({
       itemCount: names.length,
-      itemWidth: listItemWidthForCount(names.length),
+      itemWidth: 0,
       isItemSelectBorderEn: 1,
       itemName: names,
     }),
     isEventCapture: 1,
   });
+}
+
+/** Nav bar + idle “type or speak” placeholder (empty send / Clear) — double-tap exits the page. */
+function isGlassesHomeState(): boolean {
+  return (
+    glassesMenuMode === 'nav' &&
+    slides.length === 1 &&
+    slides[0]?.kind === 'placeholder'
+  );
 }
 
 async function rebuildGlassesMenu(mode: GlassesMenuMode): Promise<boolean> {
@@ -282,7 +315,7 @@ function imageContainer(): ImageContainerProperty {
 }
 
 function textStatusContainer(): TextContainerProperty {
-  const T = GLASSES_TEXT;
+  const T = glassesPanelLayout().text;
   return new TextContainerProperty({
     xPosition: T.x,
     yPosition: T.y,
@@ -310,6 +343,40 @@ function mainLayout(): CreateStartUpPageContainer {
 
 const GLASSES_STATUS_MAX = 72;
 
+/** Scale slide PNG to match the current glasses image container (taller list ⇒ shorter image area). */
+async function scalePngIfNeeded(bytes: Uint8Array, targetW: number, targetH: number): Promise<Uint8Array> {
+  if (bytes.length === 0) return bytes;
+  if (targetW === SIGN_IMAGE_WIDTH && targetH === SIGN_IMAGE_HEIGHT) return bytes;
+  try {
+    const blob = new Blob([bytes], { type: 'image/png' });
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement('canvas');
+    c.width = targetW;
+    c.height = targetH;
+    const ctx = c.getContext('2d');
+    if (!ctx) {
+      bmp.close();
+      return bytes;
+    }
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, targetW, targetH);
+    ctx.drawImage(bmp, 0, 0, targetW, targetH);
+    bmp.close();
+    const out = await new Promise<Uint8Array | null>((resolve) => {
+      c.toBlob((b) => {
+        if (!b) {
+          resolve(null);
+          return;
+        }
+        void b.arrayBuffer().then((ab) => resolve(new Uint8Array(ab)));
+      }, 'image/png');
+    });
+    return out ?? bytes;
+  } catch {
+    return bytes;
+  }
+}
+
 async function pushStatus(text: string) {
   const b = bridgeRef;
   if (!b) return;
@@ -332,11 +399,13 @@ function enqueueImage(bytes: Uint8Array, epoch: number): Promise<void> {
   if (!b || bytes.length === 0) return Promise.resolve();
   sendChain = sendChain.then(async () => {
     if (epoch !== activePhraseEpoch) return;
+    const box = glassesImageBox();
+    const payload = await scalePngIfNeeded(bytes, box.width, box.height);
     const res = await b.updateImageRawData(
       new ImageRawDataUpdate({
         containerID: 3,
         containerName: CONTAINER_IMG,
-        imageData: bytes,
+        imageData: payload,
       }),
     );
     if (epoch !== activePhraseEpoch) return;
@@ -354,7 +423,32 @@ function clipStatus(s: string, max: number): string {
 
 /** One short line for the glasses text strip — sign image stays the focus. */
 function compactGlassesStatus(slide: SignSlide, idx: number, total: number): string {
+  const captionsOn = slideToPngOptions.showCaptions !== false;
   const head = `${idx + 1}/${total}`;
+
+  if (captionsOn) {
+    switch (slide.kind) {
+      case 'word':
+        return `${head} · W`;
+      case 'letter': {
+        if (slide.spellOf && slide.spellIndex && slide.spellOfLen) {
+          return `${head} · L · ${slide.spellIndex}/${slide.spellOfLen}`;
+        }
+        return `${head} · L`;
+      }
+      case 'digit': {
+        if (slide.spellOf && slide.spellIndex && slide.spellOfLen) {
+          return `${head} · # · ${slide.spellIndex}/${slide.spellOfLen}`;
+        }
+        return `${head} · #`;
+      }
+      case 'placeholder':
+        return 'Gloss';
+      default:
+        return `${head}`;
+    }
+  }
+
   switch (slide.kind) {
     case 'word':
       return `${head} · ${clipStatus(slide.title, 22)}`;
@@ -401,14 +495,20 @@ async function showSlide(i: number) {
   scheduleGlassesAutoplayAfterDwell(epoch);
 }
 
-export async function displayPhraseOnGlasses(phrase: string): Promise<GlassesPushResult> {
+export async function displayPhraseOnGlasses(
+  phrase: string,
+  opts?: DisplayPhraseOnGlassesOpts,
+): Promise<GlassesPushResult> {
   if (!bridgeRef) {
     return { ok: false, error: 'No glasses bridge.' };
   }
   await sendChain;
   stopGlassesAutoplay();
   glassesAutoplaySessionPaused = false;
-  glassesForceReplayAutoplay = false;
+  const t = phrase.trim();
+  const forceGlassesPhraseDeck =
+    opts?.glassesPhraseAutoplay === true && t.length > 1;
+  glassesForceReplayAutoplay = forceGlassesPhraseDeck;
   if (glassesMenuMode !== 'nav') {
     await rebuildGlassesMenu('nav');
   }
@@ -461,18 +561,55 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
     if (evt === OsEventTypeList.DOUBLE_CLICK_EVENT) {
       glassesForceReplayAutoplay = false;
       stopGlassesAutoplay();
+      // From Phrases: first double-tap must return to main nav + idle so a second double-tap can show the system exit dialog (`shutDownPageContainer(1)` per Hub lifecycle).
+      if (glassesMenuMode === 'phrases') {
+        glassesPhraseScreen = { kind: 'categories' };
+        void (async () => {
+          const ok = await rebuildGlassesMenu('nav');
+          if (!ok) return;
+          await displayPhraseOnGlasses('');
+        })();
+        return;
+      }
+      if (!isGlassesHomeState()) {
+        void displayPhraseOnGlasses('');
+        return;
+      }
       void bridge.shutDownPageContainer(1);
       return;
     }
 
     if (glassesMenuMode === 'phrases') {
-      if (name === ITEM_PHRASE_BACK) {
-        void rebuildGlassesMenu('nav');
+      if (glassesPhraseScreen.kind === 'categories') {
+        if (name === ITEM_PHRASE_BACK_NAV) {
+          void (async () => {
+            glassesPhraseScreen = { kind: 'categories' };
+            const ok = await rebuildGlassesMenu('nav');
+            if (ok && slides.length > 0) void showSlide(slideIndex);
+          })();
+          return;
+        }
+        const cat = findPhraseCategoryByTitle(name);
+        if (cat) {
+          glassesPhraseScreen = { kind: 'words', categoryTitle: cat.title };
+          void (async () => {
+            const ok = await rebuildGlassesMenu('phrases');
+            if (ok && slides.length > 0) void showSlide(slideIndex);
+          })();
+        }
         return;
       }
-      const chip = GLASS_PHRASE_CHIPS.find((c) => c.label === name);
+      if (name === ITEM_PHRASE_BACK_UP) {
+        glassesPhraseScreen = { kind: 'categories' };
+        void (async () => {
+          const ok = await rebuildGlassesMenu('phrases');
+          if (ok && slides.length > 0) void showSlide(slideIndex);
+        })();
+        return;
+      }
+      const chip = findSnippetInCategory(glassesPhraseScreen.categoryTitle, name);
       if (chip) {
-        void displayPhraseOnGlasses(chip.phrase);
+        void displayPhraseOnGlasses(chip.phrase, { glassesPhraseAutoplay: true });
       }
       return;
     }
@@ -509,7 +646,11 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
       return;
     }
     if (name === ITEM_PHRASES) {
-      void rebuildGlassesMenu('phrases');
+      glassesPhraseScreen = { kind: 'categories' };
+      void (async () => {
+        const ok = await rebuildGlassesMenu('phrases');
+        if (ok && slides.length > 0) void showSlide(slideIndex);
+      })();
       return;
     }
   });

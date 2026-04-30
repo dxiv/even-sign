@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#030806" />
     <meta
       name="description"
-      content="Gloss — phrases on Even G2: glossary frames when we have them, letter slides for the rest."
+      content="Gloss — phrases on G2: glossary frames when we have them, letter slides for the rest."
     />
     <title>Gloss</title>
     <script>
@@ -49,7 +49,7 @@
             <div class="ev-home__frame">
               <header class="ev-home__head">
                 <span class="ev-home__mark" aria-hidden="true"></span>
-                <p class="ev-kicker mono">Even Hub · G2</p>
+                <p class="ev-kicker mono">Hub · G2</p>
               </header>
 
               <h1 id="ev-home-title" class="ev-hero">
@@ -73,7 +73,12 @@
 
             <div class="hub-card__main">
               <p class="ev-sign-topline mono">
-                Speak or type below, then <strong>Send to G2</strong>. Chips insert a phrase.
+                Speak or type, then <strong>Send to G2</strong>. Chips add phrases. On glasses, controls are a
+                <strong>narrow list on the left</strong> — swipe to move the highlight, tap to run — so the
+                <strong>sign</strong> uses the large area on the right.
+                <strong>Clear</strong> (or double-tap from the main nav slide view) returns to the idle screen. From
+                <strong>Phrases</strong>, double-tap first returns to main nav + idle; double-tap again on that idle screen
+                opens the system exit, or tap <strong>Exit</strong>.
               </p>
 
               <details class="ev-more">
@@ -83,8 +88,11 @@
                     <strong>Speak</strong> then <strong>Send</strong>, or
                     <kbd class="ev-kbd">Ctrl</kbd>+<kbd class="ev-kbd">Enter</kbd>. On G2:
                     <strong>Prev</strong> · <strong>Next</strong> · <strong>Replay</strong> · <strong>Clear</strong> ·
-                    <strong>Phrases</strong> · <strong>Exit</strong>. Double-tap the list or <strong>Exit</strong> for the
-                    system prompt. Each <strong>Send</strong> replaces the deck. After send,
+                    <strong>Phrases</strong> · <strong>Exit</strong>. Double-tap the list: from the main nav while a deck
+                    is showing, goes to idle home; from <strong>Phrases</strong>, goes to main nav + idle first; then
+                    double-tap again on idle home opens the system exit (same as <strong>Exit</strong>). The list is a slim
+                    <strong>left column</strong> (swipe / tap). Each
+                    <strong>Send</strong> replaces the deck. After send,
                     <kbd class="ev-kbd">Alt</kbd>+<kbd class="ev-kbd">←</kbd> /
                     <kbd class="ev-kbd">→</kbd> (outside the field) steps preview like the glasses.
                   </p>
@@ -103,18 +111,7 @@
                 spellcheck="true"
               ></textarea>
 
-              <div id="ev-sign-quick" class="ev-sign-quick mono" role="group" aria-label="Insert phrase">
-                <span class="ev-sign-quick__label">Insert</span>
-                <button type="button" class="ev-sign-chip" data-snippet="hello">hello</button>
-                <button type="button" class="ev-sign-chip" data-snippet="thank you">thanks</button>
-                <button type="button" class="ev-sign-chip" data-snippet="please">please</button>
-                <button type="button" class="ev-sign-chip" data-snippet="yes">yes</button>
-                <button type="button" class="ev-sign-chip" data-snippet="no">no</button>
-                <button type="button" class="ev-sign-chip" data-snippet="help">help</button>
-                <button type="button" class="ev-sign-chip" data-snippet="sorry">sorry</button>
-                <button type="button" class="ev-sign-chip" data-snippet="bathroom">bathroom</button>
-                <button type="button" class="ev-sign-chip" data-snippet="water">water</button>
-              </div>
+              <div id="ev-sign-quick" class="ev-sign-quick mono" role="group" aria-label="Insert phrase"></div>
 
               <div class="ev-sign-actions">
                 <button type="button" id="ev-sign-send" class="hub-capture mono">Send to G2</button>

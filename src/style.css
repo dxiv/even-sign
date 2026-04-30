@@ -689,6 +689,20 @@ html.ev-screenshot-mode .ev-stage {
   color: var(--ev-muted-bright);
 }
 
+.ev-sign-quick__cat {
+  flex-basis: 100%;
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ev-muted-bright);
+}
+
+.ev-sign-quick__label + .ev-sign-quick__cat {
+  margin-top: 4px;
+}
+
 .ev-sign-chip {
   font: inherit;
   font-size: 11px;
