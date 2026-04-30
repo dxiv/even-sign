@@ -7,27 +7,30 @@ export const SIGN_IMAGE_HEIGHT: number = dims.SIGN_IMAGE_HEIGHT;
 const G2_PANEL_W = 576;
 const G2_PANEL_H = 288;
 
-/** List + status text regions on the 576×288 glasses panel (SDK ranges). */
+/**
+ * List + status on the 576×288 glasses panel (SDK ranges).
+ * Near full-width top row so nav actions sit in one horizontal strip (host maps swipe along that row).
+ */
 export const GLASSES_LIST = {
-  x: 40,
-  y: 16,
-  w: 496,
-  h: 54,
+  x: 8,
+  y: 12,
+  w: 560,
+  h: 56,
   borderWidth: 2,
   borderColor: 5,
-  borderRadius: 5,
+  borderRadius: 6,
   paddingLength: 6,
 } as const;
 
 export const GLASSES_TEXT = {
-  x: 40,
-  y: 228,
-  w: 496,
-  h: 56,
+  x: 8,
+  y: 224,
+  w: 560,
+  h: 58,
   borderWidth: 1,
-  borderColor: 0,
-  borderRadius: 3,
-  paddingLength: 5,
+  borderColor: 3,
+  borderRadius: 6,
+  paddingLength: 8,
 } as const;
 
 export function glassesImageBox(): { x: number; y: number; width: number; height: number } {

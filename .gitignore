@@ -22,6 +22,9 @@ Thumbs.db
 # Optional local source for npm run build:signs (Commons SVG; see public/signs/ATTRIBUTIONS.md)
 scripts/tmp-alphabet.svg
 
+# Local simulator / device screenshots (repo root)
+glasses_*.png
+
 # Logs & caches
 npm-debug.log*
 yarn-debug.log*

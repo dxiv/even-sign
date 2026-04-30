@@ -3,11 +3,14 @@ import {
   displayPhraseOnGlasses,
   getGlassesSlideIndex,
   glassesNavRelative,
-  runEvenSignOnBridge,
+  runGlossOnBridge,
+  setGlassesAutoplayPreference,
   setPhraseSlideOptions,
   setSlideToPngOptions,
-} from './evenSignBridge';
-import { phraseToSlides, type PhraseToSlidesOptions, type SignSlide } from './signSlides';
+  stopGlassesAutoplay,
+} from './glossBridge';
+import { phraseToSlides, type PhraseToSlidesOptions } from './signSlides';
+import { slideDeckDelayAfterSlide } from './slideDeckTiming';
 import { slideToPngBytes, type SlideToPngOptions } from './signRender';
 
 type InitOpts = {
@@ -22,8 +25,8 @@ type PreviewEls = {
   label: HTMLElement | null;
 };
 
-const LS_COMPACT = 'evensign_compact';
-const LS_CAPTIONS = 'evensign_captions';
+const LS_COMPACT = 'gloss_compact';
+const LS_CAPTIONS = 'gloss_captions';
 
 function getSpeechRecognition(): SpeechRecognition | null {
   const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -83,26 +86,6 @@ function insertSnippet(ta: HTMLTextAreaElement, snippet: string): void {
 function previewAnimEnabled(): boolean {
   const el = document.getElementById('ev-sign-anim') as HTMLInputElement | null;
   return el?.checked === true;
-}
-
-/** Fingerspell trains faster than mixed letter + word slides. */
-function previewStepMs(slides: SignSlide[]): number {
-  if (slides.length <= 1) {
-    return 720;
-  }
-  const allFingerspell = slides.every((s) => s.kind === 'letter' || s.kind === 'digit');
-  return allFingerspell ? 520 : 780;
-}
-
-/** Dwell longer on word slides and add a gap before the next word (chat-style pacing). */
-function previewDelayAfterSlide(slides: SignSlide[], indexShown: number): number {
-  const s = slides[indexShown % slides.length];
-  const base = previewStepMs(slides);
-  if (s.kind !== 'word') return base;
-  const extraDwell = 1400;
-  const next = slides[(indexShown + 1) % slides.length];
-  const betweenWords = next.kind === 'word' ? 700 : 0;
-  return base + extraDwell + betweenWords;
 }
 
 let previewTimer = 0;
@@ -192,7 +175,7 @@ async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void>
     if (label) {
       label.textContent = `Preview · ${idx + 1}/${slides.length} · ${kindHint}`;
     }
-    const delay = previewDelayAfterSlide(slides, idx);
+    const delay = slideDeckDelayAfterSlide(slides, idx);
     idx = (idx + 1) % slides.length;
     previewTimer = window.setTimeout(() => void step(), delay);
   };
@@ -205,7 +188,7 @@ function logLine(out: HTMLPreElement | null, message: string, error: boolean): v
   out.classList.toggle('even-out--error', error);
 }
 
-export async function initEvenSignPage(opts: InitOpts): Promise<void> {
+export async function initGlossPage(opts: InitOpts): Promise<void> {
   const { bridge, bridgeAbsentReason } = opts;
   const panel = document.getElementById('ev-sign-panel');
   const ta = document.getElementById('ev-sign-input') as HTMLTextAreaElement | null;
@@ -234,23 +217,23 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
   let glassesUiOk = false;
 
   if (bridge) {
-    const started = await runEvenSignOnBridge(bridge);
+    const started = await runGlossOnBridge(bridge);
     if (started.ok) {
       glassesUiOk = true;
       log(
-        'Ready. On G2 use Prev / Next / Close. Close asks to exit — double-tap Yes to leave, No to stay.',
+        'Ready. G2: Prev · Next · Replay · Clear · Phrases · Exit. Send replaces the deck. Double-tap list or Exit to leave.',
       );
     } else {
       logErr(started.error);
     }
   } else if (bridgeAbsentReason === 'browser') {
-    log('Preview only (?pc=1). Connect from the Even app to send signs to glasses.');
+    log('Preview only (?pc=1). Open from the Even app to send to glasses.');
   } else if (bridgeAbsentReason === 'timeout') {
     logErr(
       'Even bridge did not connect in time. Open this page inside the Even app, or use ?pc=1 for preview only.',
     );
   } else {
-    log('Open in the Even app to use glasses, or add ?pc=1 to try the UI in a normal browser.');
+    log('Open in the Even app for glasses, or add ?pc=1 to try the UI in a browser.');
   }
 
   const refreshPreview = () => void runLocalPreview(ta?.value ?? '', previewEls);
@@ -264,6 +247,7 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
     try {
       const text = ta?.value?.trim() ?? '';
       syncBridgeRenderingFromUi();
+      setGlassesAutoplayPreference(previewAnimEnabled());
 
       let statusErr: string | null = null;
       if (bridge && glassesUiOk) {
@@ -279,7 +263,11 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
       if (statusErr) {
         logErr(statusErr);
       } else if (bridge && glassesUiOk) {
-        log(`Sent ${n} slide(s) to your glasses.`);
+        log(
+          n > 1 && previewAnimEnabled()
+            ? `Sent ${n} slide(s) to your glasses — auto-advancing (same timing as Animate preview).`
+            : `Sent ${n} slide(s) to your glasses.`,
+        );
       } else {
         log(`Preview updated · ${n} slide(s).`);
       }
@@ -303,7 +291,11 @@ export async function initEvenSignPage(opts: InitOpts): Promise<void> {
     syncBridgeRenderingFromUi();
     refreshPreview();
   });
-  chkAnim?.addEventListener('change', refreshPreview);
+  chkAnim?.addEventListener('change', () => {
+    setGlassesAutoplayPreference(previewAnimEnabled());
+    if (!previewAnimEnabled()) stopGlassesAutoplay();
+    refreshPreview();
+  });
 
   ta?.addEventListener('input', refreshPreview);
 

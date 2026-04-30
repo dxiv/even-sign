@@ -6,13 +6,23 @@
     <meta name="theme-color" content="#030806" />
     <meta
       name="description"
-      content="EvenSign — quick phrases and fingerspelling on Even G2 glasses."
+      content="Gloss — phrases on Even G2: glossary frames when we have them, letter slides for the rest."
     />
-    <title>even sign · hub</title>
+    <title>Gloss</title>
+    <script>
+      (function () {
+        try {
+          var q = window.location && window.location.search;
+          if (q && (/[?&]shot(?:=|$)/.test(q) || /[?&]screenshot(?:=|$)/.test(q))) {
+            document.documentElement.classList.add('ev-screenshot-mode');
+          }
+        } catch (_) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -32,38 +42,58 @@
 
     <div class="ev-stage">
       <div class="ev-shell">
-        <header class="ev-header">
-          <p class="ev-kicker mono">Even Hub · G2</p>
-        </header>
-
         <main class="ev-main">
           <p id="loading-line" class="ev-boot mono" aria-live="polite">connecting…</p>
 
-          <h1 class="ev-hero mono">
-            <span class="ev-hero__hash">#</span>
-            <span class="ev-hero__even">EVEN</span><span class="ev-hero__sign">sign</span>
-          </h1>
-          <p class="ev-lede mono">Short phrases on your glasses — word signs when we have them, fingerspelling for the rest.</p>
+          <section class="ev-home" aria-labelledby="ev-home-title">
+            <div class="ev-home__frame">
+              <header class="ev-home__head">
+                <span class="ev-home__mark" aria-hidden="true"></span>
+                <p class="ev-kicker mono">Even Hub · G2</p>
+              </header>
+
+              <h1 id="ev-home-title" class="ev-hero">
+                <span class="ev-hero__wordmark">Gloss</span>
+              </h1>
+              <p class="ev-tagline">Say it on your glasses — word art when we have it, spelled letters when we do not.</p>
+
+              <p class="ev-sparks-inline mono">
+                <span>Type or speak, then Send</span><span class="ev-sparks-inline__dot" aria-hidden="true">·</span><span>Preview matches G2</span><span class="ev-sparks-inline__dot" aria-hidden="true">·</span><span>Lens nav &amp; quick phrases</span>
+              </p>
+            </div>
+          </section>
 
           <article id="ev-sign-panel" class="hub-card ev-panel" hidden>
             <header class="hub-card__titlebar ev-panel__head">
-              <div class="hub-card__brand" aria-label="EvenSign">
-                <span class="hub-card__even">EVEN</span><span class="hub-card__sign">sign</span>
+              <div class="hub-card__brand" aria-label="Gloss">
+                <span class="hub-card__sign">Gloss</span>
               </div>
               <span class="hub-card__pill">HUB</span>
             </header>
 
             <div class="hub-card__main">
-              <p class="hub-card__hint mono ev-sign-lead">
-                Type or use <strong>Speak</strong>, then <strong>Send</strong> (or
-                <kbd class="ev-kbd">Ctrl</kbd>+<kbd class="ev-kbd">Enter</kbd>). On G2 use the list
-                <strong>Prev</strong> / <strong>Next</strong>. After a send, <kbd class="ev-kbd">Alt</kbd>+<kbd class="ev-kbd">←</kbd> /
-                <kbd class="ev-kbd">→</kbd> (outside the text box) matches glasses slides in the preview.
+              <p class="ev-sign-topline mono">
+                Speak or type below, then <strong>Send to G2</strong>. Chips insert a phrase.
               </p>
-              <p class="hub-card__hint mono ev-sign-disclaimer">
-                Aid only — not a certified interpreter or emergency service. Typed text stays on this page until you send. Speech
-                may use your browser or device recognizer.
-              </p>
+
+              <details class="ev-more">
+                <summary class="ev-more__summary mono">Glasses controls &amp; shortcuts</summary>
+                <div class="ev-more__body">
+                  <p class="hub-card__hint mono ev-sign-lead">
+                    <strong>Speak</strong> then <strong>Send</strong>, or
+                    <kbd class="ev-kbd">Ctrl</kbd>+<kbd class="ev-kbd">Enter</kbd>. On G2:
+                    <strong>Prev</strong> · <strong>Next</strong> · <strong>Replay</strong> · <strong>Clear</strong> ·
+                    <strong>Phrases</strong> · <strong>Exit</strong>. Double-tap the list or <strong>Exit</strong> for the
+                    system prompt. Each <strong>Send</strong> replaces the deck. After send,
+                    <kbd class="ev-kbd">Alt</kbd>+<kbd class="ev-kbd">←</kbd> /
+                    <kbd class="ev-kbd">→</kbd> (outside the field) steps preview like the glasses.
+                  </p>
+                  <p class="hub-card__hint mono ev-sign-disclaimer">
+                    Aid only — not a certified interpreter or emergency service. Text stays here until you send. Speech may use
+                    your device recognizer.
+                  </p>
+                </div>
+              </details>
 
               <textarea
                 id="ev-sign-input"
@@ -96,15 +126,15 @@
               <div class="ev-sign-toggles mono" role="group" aria-label="Options">
                 <label class="ev-sign-opt">
                   <input type="checkbox" id="ev-sign-compact" />
-                  One glossary slide per typed word (fewer slides; preview stays longer on each word)
+                  <span>One slide per word (fewer slides)</span>
                 </label>
                 <label class="ev-sign-opt">
                   <input type="checkbox" id="ev-sign-captions" checked />
-                  Captions on each slide (letter vs word · turn off for a cleaner image)
+                  <span>Show captions on each slide</span>
                 </label>
                 <label class="ev-sign-opt">
                   <input type="checkbox" id="ev-sign-anim" checked />
-                  Animate preview when there are multiple slides
+                  <span>Animate preview and G2 after Send (same timing)</span>
                 </label>
               </div>
 
@@ -112,7 +142,7 @@
                 <span id="ev-sign-preview-label" class="ev-sign-preview-label mono">Preview</span>
                 <div class="ev-sign-preview-frame">
                   <div id="ev-sign-preview-placeholder" class="ev-sign-preview-placeholder mono">
-                    <span class="ev-sign-preview-hint">Your signs appear here</span>
+                    <span class="ev-sign-preview-hint">Your slides appear here</span>
                   </div>
                   <img
                     id="ev-sign-preview"
@@ -128,7 +158,7 @@
               <section class="hub-console ev-console" aria-label="Status">
                 <div class="hub-console__label mono">status</div>
                 <div class="hub-console__body mono">
-                  <span class="hub-console__prompt">evensign%</span>
+                  <span class="hub-console__prompt">gloss%</span>
                   <pre id="ev-sign-out" class="hub-console__pre"></pre>
                 </div>
               </section>

@@ -120,7 +120,7 @@ export function phraseToSlides(phrase: string, opts?: PhraseToSlidesOptions): Si
   const compact = opts?.compactGlossary === true;
   const raw = phrase.trim();
   if (!raw) {
-    return [{ title: 'EVENSIGN', line: 'type or speak a phrase', kind: 'placeholder' }];
+    return [{ title: 'GLOSS', line: 'type or speak a phrase', kind: 'placeholder' }];
   }
 
   const slides: SignSlide[] = [];

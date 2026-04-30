@@ -5,7 +5,7 @@ describe('phraseToSlides', () => {
   it('returns placeholder when phrase is empty', () => {
     const s = phraseToSlides('  ');
     expect(s).toHaveLength(1);
-    expect(s[0].title).toBe('EVENSIGN');
+    expect(s[0].title).toBe('GLOSS');
     expect(s[0].kind).toBe('placeholder');
   });
 

@@ -61,7 +61,7 @@ function badgeCaption(slide: SignSlide): string {
       return `NUMBER  ${t}`;
     }
     case 'placeholder':
-      return 'EVENSIGN';
+      return 'GLOSS';
     case 'other':
       return slide.title.slice(0, 24);
     default:

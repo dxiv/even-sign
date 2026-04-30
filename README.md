@@ -1,6 +1,6 @@
-# Even Sign
+# Gloss
 
-A small **Even Hub** page for **Even G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. Navigation is charmingly retro—**Prev**, **Next**, **Close**—because your nose is not a trackpad.
+A small **Even Hub** page for **Even G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. On-glasses navigation is **Prev**, **Next**, **Replay**, **Clear**, **Phrases**, **Exit** in one **full-width horizontal** row (equal column widths). **Phrases** swaps the row to the same quick snippets as the phone insert chips (`hello`, `thanks`, …) plus **Back**. A **compact** status line keeps the **sign image** as the focus. Each **Send** replaces the deck on glasses and returns the bar to **nav**.
 
 This is a **hub integration**, not a replacement for a skilled interpreter. It does glossary words and fingerspelling-style slides; it will not win a prize for ASL grammar. It *will* put green-ish pixels where the hardware expects them.
 
@@ -28,7 +28,7 @@ Open the URL Vite prints. For keyboard cred: **Ctrl+Enter** sends from the texta
 - **`npm run sim`** — after `npm run dev`, runs **`evenhub-simulator`** against the dev URL (see **`package.json`**). Use this for a quick **hub-store-style smoke** of layout + bridge without real glasses.
 - **`npm run hub:qr`** — prints a QR for sideloading the same URL via the Even hub CLI. Replace `localhost` with your machine’s LAN IP or hostname when loading on a **real device** on the network; `localhost` on the phone refers to the phone, not your PC.
 - **`app.json`** — Even Hub manifest at the repo root (`package_id`, edition, entrypoint, SDK floor, and so on). Keep `version` in sync with `package.json` when you release.
-- **`npm run pack:hub`** — runs a production build, then **`evenhub pack app.json dist -o evensign.ehpk`**. The **`evensign.ehpk`** file appears at the repo root (gitignored). In **Even Hub**, create or import a project from that package to install on glasses for device testing.
+- **`npm run pack:hub`** — runs a production build, then **`evenhub pack app.json dist -o gloss.ehpk`**. The **`gloss.ehpk`** file appears at the repo root (gitignored). In **Even Hub**, create or import a project from that package to install on glasses for device testing.
 
 **Production**
 
@@ -38,7 +38,7 @@ npm run build
 
 Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 
-### Beta / release hygiene
+### Release hygiene
 
 - **`package.json`** and **`app.json`** versions should match (currently **1.1.0**). Even Hub’s **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix).
 - **`npm run test`** — Vitest unit tests under `src/**/*.test.ts`. **`npm run build`** runs tests, then Typecheck + Vite.
@@ -55,8 +55,9 @@ Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 3. Turn that off to **spell glossary words letter-by-letter** (practice / slow decoding), using **`public/signs/alphabet/`** and **`public/signs/numbers/`**.
 4. Unknown words are spelled out (A–Z / 0–9). Each slide gets a **small status bar** (LETTER / NUMBER / WORD, plus spell progress when you are inside a word) and the final bitmap is **flattened to G2 green** (R/B zero, G = luminance) in the browser so previews match glasses.
 5. **Preview timing** is a bit faster when the deck is only letters and digits (fingerspelling), slower when it mixes **word** slides.
-6. **Close** on the device swaps the nav row to **Yes / No**. **Double-tap Yes** exits; **No** restores **Prev / Next / Close**.
-7. After **Send**, **Alt+←** / **Alt+→** (when focus is not in a text field) steps slides in the **preview** the same way as glasses **Prev** / **Next**—handy on desktop hub where there is no ring.
+6. With **Animate** enabled, after **Send** the glasses **auto-advance** through the same deck as the preview, using shared timing in **`src/slideDeckTiming.ts`**. **Replay** on glasses also turns on looping autoplay for the current deck (for use without the phone). **Prev** / **Next** (or hub **Alt+←/→**) pause auto-advance until the next **Send** or **Replay**. **Clear** wipes the glasses to the empty placeholder.
+7. **Exit** or a **double-tap** on the glasses list opens the **system exit prompt** (`shutDownPageContainer(1)` per Even Hub lifecycle).
+8. After **Send**, **Alt+←** / **Alt+→** (when focus is not in a text field) steps slides in the **preview** the same way as glasses **Prev** / **Next**—handy on desktop hub where there is no ring.
 
 ### Openly licensed sources for sharper art (you swap files, then rebuild)
 
@@ -91,8 +92,9 @@ npm run build:signs:all
 | Path | Role |
 | --- | --- |
 | `src/main.ts` | Bridge wait, boot |
-| `src/evenSignPage.ts` | Input, speech, preview, toggles |
-| `src/evenSignBridge.ts` | SDK layout, list events, image queue |
+| `src/glossPage.ts` | Input, speech, preview, toggles |
+| `src/glossBridge.ts` | SDK layout, list events, image queue, optional glasses autoplay |
+| `src/slideDeckTiming.ts` | Shared dwell timing for preview animation + glasses auto-advance |
 | `src/signSlides.ts` | Phrase → slide list; **`const WORDS`** glossary |
 | `src/signRender.ts` | PNG bytes per slide |
 | `src/signConstants.ts` | Slide + glasses layout constants; **`assertGlassesLayout()`** |

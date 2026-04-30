@@ -1,8 +1,17 @@
 import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
-import { initEvenSignPage } from './evenSignPage';
+import { initGlossPage } from './glossPage';
 import './style.css';
 
 const BRIDGE_WAIT_MS = 4000;
+
+/** Marketing / store screenshot: hero only, no hub card (`?shot` or `?screenshot`). */
+function applyScreenshotModeClass(): void {
+  const q = new URLSearchParams(window.location.search);
+  if (q.has('shot') || q.has('screenshot')) {
+    document.documentElement.classList.add('ev-screenshot-mode');
+  }
+}
+applyScreenshotModeClass();
 
 function forceBrowserOnly(): boolean {
   return new URLSearchParams(window.location.search).has('pc');
@@ -32,7 +41,7 @@ async function main() {
 
   if (loading) loading.remove();
 
-  await initEvenSignPage({ bridge, bridgeAbsentReason });
+  await initGlossPage({ bridge, bridgeAbsentReason });
 }
 
 void main().catch((e) => {
@@ -46,7 +55,7 @@ void main().catch((e) => {
   } else {
     document.body.insertAdjacentHTML(
       'beforeend',
-      `<pre class="even-fallback-error">EvenSign: ${String(e)}</pre>`,
+      `<pre class="even-fallback-error">Gloss: ${String(e)}</pre>`,
     );
   }
 });

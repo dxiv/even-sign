@@ -15,7 +15,7 @@ describe('Even Hub: typing + speech (shipped UI contract)', () => {
   });
 
   it('keeps Speak on Web Speech API without gating on Even bridge presence', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'src', 'evenSignPage.ts'), 'utf8');
+    const src = fs.readFileSync(path.join(ROOT, 'src', 'glossPage.ts'), 'utf8');
     expect(src).toContain('getSpeechRecognition');
     expect(src).toContain('window.SpeechRecognition ?? window.webkitSpeechRecognition');
     expect(src).toContain("getElementById('ev-sign-speak')");
