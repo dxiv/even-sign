@@ -680,6 +680,8 @@ html.ev-screenshot-mode .ev-stage {
   margin-top: 10px;
   font-size: 11px;
   color: var(--ev-muted);
+  /* Card uses overflow:hidden; letter-spacing on headings can extend past the last glyph. */
+  padding-inline: 4px;
 }
 
 .ev-sign-quick__label {
@@ -697,6 +699,10 @@ html.ev-screenshot-mode .ev-stage {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ev-muted-bright);
+  overflow-wrap: break-word;
+  padding-inline-end: 0.35em;
+  cursor: default;
+  pointer-events: none;
 }
 
 .ev-sign-quick__label + .ev-sign-quick__cat {
@@ -709,6 +715,7 @@ html.ev-screenshot-mode .ev-stage {
   letter-spacing: 0.04em;
   min-height: var(--ev-touch-min);
   padding: 8px 14px;
+  margin: 2px 1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -114,22 +114,49 @@ async function pngFromSignAsset(title: string): Promise<Uint8Array | null> {
   }
 }
 
+function tokenToWordAssetSlug(token: string): string | null {
+  const s = token
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]+/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return s.length > 0 ? s : null;
+}
+
+/** Try primary slug, then `wordToken` / `wordKey` forms so word art still loads if one path mismatches the file name. */
 async function pngFromWordAsset(slide: SignSlide): Promise<Uint8Array | null> {
-  const slug = wordAssetSlug(slide);
-  if (!slug) {
-    return null;
+  const slugs: string[] = [];
+  const add = (s: string | null | undefined) => {
+    if (!s) return;
+    if (!slugs.includes(s)) slugs.push(s);
+  };
+  add(wordAssetSlug(slide));
+  if (slide.wordToken) add(tokenToWordAssetSlug(slide.wordToken));
+  if (slide.wordKey) {
+    add(
+      slide.wordKey
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9-]+/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, ''),
+    );
   }
-  try {
-    const res = await fetch(`/signs/words/${slug}.png`, { cache: 'force-cache' });
-    if (!res.ok) {
-      return null;
+  for (const slug of slugs) {
+    if (!slug) continue;
+    try {
+      const res = await fetch(`/signs/words/${slug}.png`, { cache: 'force-cache' });
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      const u8 = new Uint8Array(buf);
+      if (u8.length > 0) return u8;
+    } catch {
+      /* try next slug */
     }
-    const buf = await res.arrayBuffer();
-    const u8 = new Uint8Array(buf);
-    return u8.length > 0 ? u8 : null;
-  } catch {
-    return null;
   }
+  return null;
 }
 
 async function bitmapFromPngBytes(u8: Uint8Array): Promise<ImageBitmap | null> {

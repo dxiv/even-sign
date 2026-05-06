@@ -77,7 +77,7 @@ function renderPhraseQuickChips(container: HTMLElement): void {
   insertLbl.textContent = 'Insert';
   frag.appendChild(insertLbl);
   for (const cat of PHRASE_SNIPPET_CATEGORIES) {
-    const head = document.createElement('span');
+    const head = document.createElement('div');
     head.className = 'ev-sign-quick__cat';
     head.textContent = cat.title;
     frag.appendChild(head);
@@ -198,7 +198,7 @@ async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void>
     const kindHint =
       s.kind === 'word' ? 'word' : s.kind === 'letter' ? 'letter' : s.kind === 'digit' ? 'number' : s.kind;
     if (label) {
-      label.textContent = `Preview · ${idx + 1}/${slides.length} · ${kindHint}`;
+      label.textContent = `Preview · slide ${idx + 1} of ${slides.length} · ${kindHint}`;
     }
     const delay = slideDeckDelayAfterSlide(slides, idx);
     idx = (idx + 1) % slides.length;
@@ -250,7 +250,7 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
     if (started.ok) {
       glassesUiOk = true;
       log(
-        'Ready. G2: slim list on the left (swipe + tap). Prev · Next · Replay · Clear · Phrases · Exit. Big sign area on the right. Double-tap: home from slides/Phrases, then exit from idle. Exit anytime.',
+        'Ready. G2: slim list on the left (swipe + tap). Idle: phrase categories (pick a section, then a word). After Send or picking a word: Prev · Next · Replay · Clear · Phrases · Exit. Double-tap: word list → categories; deck → category home; on home, double-tap exits.',
       );
     } else {
       logErr(started.error);
@@ -410,7 +410,7 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
       if (sl.length === 0) return;
       await updateLocalPreviewSingle(phrase, preview, so, getGlassesSlideIndex() % sl.length, po);
       if (label) {
-        label.textContent = `Preview · ${getGlassesSlideIndex() + 1}/${sl.length} (glasses)`;
+        label.textContent = `Preview · slide ${getGlassesSlideIndex() + 1} of ${sl.length} (glasses)`;
       }
     })();
   };

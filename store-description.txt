@@ -1,22 +1,26 @@
-Gloss sends short English phrases from your phone to G2-connected glasses as a sequence of sign slides. When Gloss has matching art for a word, you see a whole-word slide; otherwise it spells with letter and number slides so you can still get the message across on the glasses.
+Gloss turns a short English phrase into a deck of sign slides and sends it from your phone to Even G2 via Hub. If Gloss has matching word art you’ll get a whole‑word slide; otherwise it fingerspells with letter/number slides so you can still get the message across.
 
 WHO IT IS FOR
-People who want quick, repeatable phrases on G2—at home, out and about, or while practicing—with a phone preview that matches what the glasses show.
+People who want fast, repeatable phrases on G2—at home, out and about, or while practicing—with a phone preview that matches what the glasses show.
 
 WHAT YOU NEED
-G2 glasses, the Realities companion app with Hub, and this page opened inside the app. Optional: microphone for Speak (speech may use your device or browser recognizer and can use the network—see app permissions).
+Even G2, the Even Realities app with Hub, and this page opened inside the app. Optional: microphone for Speak (speech recognition is provided by your browser/OS and may use the network—see app permissions).
+
+FEATURES
+- Type or Speak, then Send — each Send replaces the deck on the glasses.
+- Smart rendering: whole‑word slides when available, otherwise fingerspelling (A–Z / 0–9).
+- Phone preview that matches the on‑glasses slide images and timing.
+- Options: captions on/off, one‑slide‑per‑word (compact glossary) on/off, Animate (auto‑play) on/off.
+- Phrase library: Insert chips on phone, plus an on‑glasses picker (topics A–Z → words A–Z).
+- New home screen: on idle you start inside the picker (topics list), so you can jump straight to a word.
+- Controls on glasses (after Send / choosing a word): Prev / Next, Replay, Clear, Phrases, Exit.
+- Keyboard on hub/desktop: Ctrl+Enter to send; Alt+Left / Alt+Right steps the preview like Prev / Next.
 
 QUICK START
-1) Open Gloss from the Realities app on your phone.
-2) Type a short line (for example: hello thank you please) or tap Speak, then tap Send to G2.
-3) Watch the Preview on the phone and the slides on the glasses. Each Send replaces the deck on the glasses.
-4) On the glasses, a slim list on the left shows actions — swipe to move the highlight, tap to choose. The sign uses the large area on the right. Prev and Next step slides. Replay restarts from the first slide and can loop when Animate is on. Clear returns to the idle home screen.
-5) Phrases opens topic categories, then words in each topic (same library as the phone Insert chips). Back and Up navigate between lists.
-6) To leave Gloss: tap Exit for the system exit prompt, or double-tap the list from the idle home screen on the main nav (double-tap from slides or Phrases first returns you to that home screen, then double-tap again for exit).
-7) On the phone hub: use Insert chips to add a word; Ctrl+Enter sends; with focus outside the text box, Alt+Left and Alt+Right step the preview like Prev and Next on the glasses.
-
-OPTIONS ON THE PHONE
-You can turn captions on or off on each slide, choose one slide per glossary word for fewer slides, and match glasses autoplay timing to the animated preview after Send.
+1) Open Gloss from the Even app on your phone.
+2) Type a short line (for example: hello thank you please) or tap Speak, then tap Send.
+3) Use the phone Preview and the glasses controls to step, replay, or clear.
+4) On glasses, idle shows topics; tap a topic then a word to send it. Double‑tap goes back (words → topics; deck → topics). Double‑tap again on topics exits.
 
 IMPORTANT
 Gloss is an aid only—not a certified interpreter or emergency service. Typed text stays on this page until you send.

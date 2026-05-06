@@ -1,11 +1,14 @@
 /**
  * Hub insert chips + G2 **Phrases** menu: categories (A–Z) → words (A–Z per category).
- * Row labels on glasses stay short; `phrase` is what we pass to `phraseToSlides`.
+ * Row labels on glasses stay short (≤12 chars, enforced in `assertPhraseSnippetData`);
+ * `phrase` is what we pass to `phraseToSlides`.
  */
 
 export type PhraseSnippet = {
   /** List row on G2 (unique within its category). */
   label: string;
+  /** G2 word list row when `label` is long for the narrow column; hub chips still use `label`. */
+  glassesRowLabel?: string;
   /** Text inserted / sent to gloss. */
   phrase: string;
 };
@@ -15,8 +18,20 @@ export type PhraseSnippetCategory = {
   id: string;
   /** Shown on glasses category list; unique across categories; sorted A–Z with other titles. */
   title: string;
+  /** If true, omit this category from all UI lists (glasses + hub quick chips). */
+  hidden?: boolean;
+  /**
+   * G2 phrase picker row (~100px wide). Omit to use `title`. When set, must stay unique among
+   * all picker rows and short enough to render fully on the list.
+   */
+  glassesRowLabel?: string;
   snippets: PhraseSnippet[];
 };
+
+/** Row string on the G2 word list (may differ from hub chip `label`). */
+export function phraseSnippetGlassesRowLabel(s: PhraseSnippet): string {
+  return s.glassesRowLabel ?? s.label;
+}
 
 function sortSnippets(s: PhraseSnippet[]): PhraseSnippet[] {
   return [...s].sort((a, b) => a.label.localeCompare(b.label, 'en'));
@@ -33,6 +48,7 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
   {
     id: 'basics',
     title: 'Basics',
+    hidden: true,
     snippets: [
       { label: 'again', phrase: 'again' },
       { label: 'bad', phrase: 'bad' },
@@ -56,11 +72,12 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
   {
     id: 'directions',
     title: 'Directions',
+    glassesRowLabel: 'Travel',
     snippets: [
       { label: 'airport', phrase: 'airport' },
       { label: 'bus', phrase: 'bus' },
       { label: 'car', phrase: 'car' },
-      { label: 'elevator', phrase: 'elevator' },
+      { label: 'elevator', glassesRowLabel: 'Lift', phrase: 'elevator' },
       { label: 'here', phrase: 'here' },
       { label: 'hotel', phrase: 'hotel' },
       { label: 'left', phrase: 'left' },
@@ -77,13 +94,14 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
   {
     id: 'feelings',
     title: 'Feelings',
+    glassesRowLabel: 'Mood',
     snippets: [
       { label: 'afraid', phrase: 'afraid' },
       { label: 'angry', phrase: 'angry' },
       { label: 'anxious', phrase: 'anxious' },
       { label: 'calm', phrase: 'calm' },
       { label: 'excited', phrase: 'excited' },
-      { label: 'frustrated', phrase: 'frustrated' },
+      { label: 'frustrated', glassesRowLabel: 'Annoyed', phrase: 'frustrated' },
       { label: 'happy', phrase: 'happy' },
       { label: 'love', phrase: 'love' },
       { label: 'nervous', phrase: 'nervous' },
@@ -97,7 +115,7 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
     id: 'food',
     title: 'Food',
     snippets: [
-      { label: 'breakfast', phrase: 'breakfast' },
+      { label: 'breakfast', glassesRowLabel: 'Bfast', phrase: 'breakfast' },
       { label: 'coffee', phrase: 'coffee' },
       { label: 'dinner', phrase: 'dinner' },
       { label: 'drink', phrase: 'drink' },
@@ -106,7 +124,7 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
       { label: 'hungry', phrase: 'hungry' },
       { label: 'lunch', phrase: 'lunch' },
       { label: 'milk', phrase: 'milk' },
-      { label: 'restaurant', phrase: 'restaurant' },
+      { label: 'restaurant', glassesRowLabel: 'Eatery', phrase: 'restaurant' },
       { label: 'thirsty', phrase: 'thirsty' },
       { label: 'water', phrase: 'water' },
     ],
@@ -116,17 +134,17 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
     title: 'Health',
     snippets: [
       { label: 'allergy', phrase: 'allergy' },
-      { label: 'ambulance', phrase: 'ambulance' },
-      { label: 'appointment', phrase: 'appointment' },
+      { label: 'ambulance', glassesRowLabel: 'EMS', phrase: 'ambulance' },
+      { label: 'appointment', glassesRowLabel: 'Appt', phrase: 'appointment' },
       { label: 'cold', phrase: 'cold' },
       { label: 'cough', phrase: 'cough' },
       { label: 'doctor', phrase: 'doctor' },
-      { label: 'emergency', phrase: 'emergency' },
+      { label: 'emergency', glassesRowLabel: 'Urgent', phrase: 'emergency' },
       { label: 'fever', phrase: 'fever' },
       { label: 'headache', phrase: 'headache' },
       { label: 'hospital', phrase: 'hospital' },
       { label: 'hurt', phrase: 'hurt' },
-      { label: 'medicine', phrase: 'medicine' },
+      { label: 'medicine', glassesRowLabel: 'Meds', phrase: 'medicine' },
       { label: 'pain', phrase: 'pain' },
       { label: 'sick', phrase: 'sick' },
     ],
@@ -152,9 +170,10 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
   {
     id: 'questions',
     title: 'Questions',
+    glassesRowLabel: 'Ask',
     snippets: [
       { label: 'how', phrase: 'how' },
-      { label: 'how much', phrase: 'how much' },
+      { label: 'how much', glassesRowLabel: 'Amount', phrase: 'how much' },
       { label: 'what', phrase: 'what' },
       { label: 'when', phrase: 'when' },
       { label: 'where', phrase: 'where' },
@@ -172,9 +191,9 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
       { label: 'friend', phrase: 'friend' },
       { label: 'hearing', phrase: 'hearing' },
       { label: 'meet', phrase: 'meet' },
-      { label: 'my name', phrase: 'my name is' },
+      { label: 'my name', glassesRowLabel: 'Intro', phrase: 'my name is' },
       { label: 'name', phrase: 'name' },
-      { label: 'nice meet', phrase: 'nice to meet you' },
+      { label: 'nice meet', glassesRowLabel: 'Greet', phrase: 'nice to meet you' },
       { label: 'sign', phrase: 'sign' },
       { label: 'you', phrase: 'you' },
     ],
@@ -183,7 +202,7 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
     id: 'time',
     title: 'Time',
     snippets: [
-      { label: 'afternoon', phrase: 'afternoon' },
+      { label: 'afternoon', glassesRowLabel: 'Midday', phrase: 'afternoon' },
       { label: 'evening', phrase: 'evening' },
       { label: 'later', phrase: 'later' },
       { label: 'morning', phrase: 'morning' },
@@ -201,24 +220,26 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
     snippets: [
       { label: 'busy', phrase: 'busy' },
       { label: 'call', phrase: 'call' },
-      { label: 'computer', phrase: 'computer' },
+      { label: 'computer', glassesRowLabel: 'PC', phrase: 'computer' },
       { label: 'email', phrase: 'email' },
       { label: 'free', phrase: 'free' },
       { label: 'help', phrase: 'help' },
       { label: 'learn', phrase: 'learn' },
       { label: 'meeting', phrase: 'meeting' },
       { label: 'phone', phrase: 'phone' },
-      { label: 'schedule', phrase: 'schedule' },
+      { label: 'schedule', glassesRowLabel: 'Plan', phrase: 'schedule' },
       { label: 'slow', phrase: 'slow' },
       { label: 'text', phrase: 'text' },
-      { label: 'understand', phrase: 'understand' },
+      { label: 'understand', glassesRowLabel: 'Got it', phrase: 'understand' },
       { label: 'wifi', phrase: 'wifi' },
       { label: 'work', phrase: 'work' },
     ],
   },
 ];
 
-export const PHRASE_SNIPPET_CATEGORIES: PhraseSnippetCategory[] = sortCategories(PHRASE_SNIPPET_CATEGORIES_RAW);
+export const PHRASE_SNIPPET_CATEGORIES: PhraseSnippetCategory[] = sortCategories(
+  PHRASE_SNIPPET_CATEGORIES_RAW.filter((c) => c.hidden !== true),
+);
 
 const RESERVED_LABELS = new Set(['Back', 'Up']);
 
@@ -227,11 +248,19 @@ function assertPhraseSnippetData(): void {
   if (new Set(titles).size !== titles.length) {
     throw new Error('phraseSnippets: duplicate category title');
   }
+  const pickerLabels = PHRASE_SNIPPET_CATEGORIES.map((c) => c.glassesRowLabel ?? c.title);
+  if (new Set(pickerLabels).size !== pickerLabels.length) {
+    throw new Error('phraseSnippets: duplicate category glasses row / picker label');
+  }
   let n = 0;
   for (const c of PHRASE_SNIPPET_CATEGORIES) {
     const labels = c.snippets.map((s) => s.label);
     if (new Set(labels).size !== labels.length) {
       throw new Error(`phraseSnippets: duplicate label in category ${c.title}`);
+    }
+    const glassRows = c.snippets.map((s) => phraseSnippetGlassesRowLabel(s));
+    if (new Set(glassRows).size !== glassRows.length) {
+      throw new Error(`phraseSnippets: duplicate glasses row in category ${c.title}`);
     }
     for (const s of c.snippets) {
       if (RESERVED_LABELS.has(s.label)) {
@@ -252,11 +281,23 @@ function assertPhraseSnippetData(): void {
   if (n < 100) {
     throw new Error(`phraseSnippets: expected at least 100 snippets, got ${n}`);
   }
-  const maxWordRows =
-    Math.max(...PHRASE_SNIPPET_CATEGORIES.map((c) => c.snippets.length), 0) + 1;
-  const categoryRows = PHRASE_SNIPPET_CATEGORIES.length + 1;
+  const maxWordRows = Math.max(...PHRASE_SNIPPET_CATEGORIES.map((c) => c.snippets.length), 0);
+  const categoryRows = PHRASE_SNIPPET_CATEGORIES.length;
   if (maxWordRows > 20 || categoryRows > 20) {
     throw new Error('phraseSnippets: G2 list supports at most 20 rows per list (see Hub list docs)');
+  }
+  const maxRowLen = 12;
+  for (const c of PHRASE_SNIPPET_CATEGORIES) {
+    const prow = phraseCategoryPickerRowLabel(c);
+    if (prow.length > maxRowLen) {
+      throw new Error(`phraseSnippets: category glasses row too long (${prow.length}): ${prow}`);
+    }
+    for (const s of c.snippets) {
+      const row = phraseSnippetGlassesRowLabel(s);
+      if (row.length > maxRowLen) {
+        throw new Error(`phraseSnippets: snippet row too long in ${c.title} (${row.length}): ${row}`);
+      }
+    }
   }
 }
 
@@ -264,15 +305,34 @@ assertPhraseSnippetData();
 
 export const PHRASE_SNIPPET_COUNT = PHRASE_SNIPPET_CATEGORIES.reduce((a, c) => a + c.snippets.length, 0);
 
-/** Longest glasses list when browsing words in one category (includes trailing `Up`). */
-export const PHRASE_GLASSES_MAX_LIST_ITEMS =
-  Math.max(...PHRASE_SNIPPET_CATEGORIES.map((c) => c.snippets.length)) + 1;
+/** Longest glasses list when browsing words in one category (no separate nav rows — double-tap goes up). */
+export const PHRASE_GLASSES_MAX_LIST_ITEMS = Math.max(
+  ...PHRASE_SNIPPET_CATEGORIES.map((c) => c.snippets.length),
+);
 
-/** Category picker length includes trailing `Back` to main nav. */
-export const PHRASE_GLASSES_CATEGORY_LIST_ITEMS = PHRASE_SNIPPET_CATEGORIES.length + 1;
+/** Category picker row count (every row opens that topic; double-tap returns to main nav). */
+export const PHRASE_GLASSES_CATEGORY_LIST_ITEMS = PHRASE_SNIPPET_CATEGORIES.length;
 
 export function getPhraseCategoryTitles(): readonly string[] {
   return PHRASE_SNIPPET_CATEGORIES.map((c) => c.title);
+}
+
+/** Row text on the G2 Phrases category list (short labels on a narrow column). */
+export function phraseCategoryPickerRowLabel(cat: PhraseSnippetCategory): string {
+  return cat.glassesRowLabel ?? cat.title;
+}
+
+export function getPhraseCategoryPickerRowLabels(): readonly string[] {
+  return PHRASE_SNIPPET_CATEGORIES.map(phraseCategoryPickerRowLabel);
+}
+
+export function findPhraseCategoryByPickerRowLabel(label: string): PhraseSnippetCategory | undefined {
+  const t = label.trim();
+  const pick = (c: PhraseSnippetCategory) => phraseCategoryPickerRowLabel(c);
+  const exact = PHRASE_SNIPPET_CATEGORIES.find((c) => pick(c) === t);
+  if (exact) return exact;
+  const tl = t.toLowerCase();
+  return PHRASE_SNIPPET_CATEGORIES.find((c) => pick(c).toLowerCase() === tl);
 }
 
 export function findPhraseCategoryByTitle(title: string): PhraseSnippetCategory | undefined {
@@ -284,5 +344,11 @@ export function findSnippetInCategory(
   label: string,
 ): PhraseSnippet | undefined {
   const cat = findPhraseCategoryByTitle(categoryTitle);
-  return cat?.snippets.find((s) => s.label === label);
+  if (!cat) return undefined;
+  const t = label.trim();
+  const tl = t.toLowerCase();
+  return cat.snippets.find((s) => {
+    const row = phraseSnippetGlassesRowLabel(s);
+    return row === t || s.label === t || row.toLowerCase() === tl || s.label.toLowerCase() === tl;
+  });
 }

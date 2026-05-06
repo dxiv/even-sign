@@ -11,7 +11,7 @@ On **real G2**, verify after a hub change that touches the glasses UI:
    Labels are short English on a narrow column. **Swipe** through every row (nav + a long Phrases screen); selection must move past the first item (`itemWidth: 0` auto-fill). Confirm labels do not truncate oddly on your firmware build.
 
 3. **Phrases (two steps)**  
-   **Phrases** opens **category titles** (A–Z); pick one → **words** in that topic (A–Z). **Up** returns to categories; **Back** (on the category screen) returns to main nav. A word row sends that snippet to the slide deck.
+   **Phrases** opens **category titles** (A–Z); pick one → **words** in that topic (A–Z). **Double-tap** list or ring/temple: words → categories → main nav (no extra list rows). A word row sends that snippet to the slide deck.
 
 4. **Captions on** (hub / default: captions on slide)  
    Status strip shows compact tokens (`n/total · W` / `· L` / `· #` / spell progress) without repeating long English from the learning bar.

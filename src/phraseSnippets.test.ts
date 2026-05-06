@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   PHRASE_SNIPPET_CATEGORIES,
   PHRASE_SNIPPET_COUNT,
+  findPhraseCategoryByPickerRowLabel,
   findPhraseCategoryByTitle,
+  findSnippetInCategory,
+  getPhraseCategoryPickerRowLabels,
   getPhraseCategoryTitles,
+  phraseCategoryPickerRowLabel,
 } from './phraseSnippets';
 
 describe('phraseSnippets', () => {
@@ -25,5 +29,24 @@ describe('phraseSnippets', () => {
     for (const title of t) {
       expect(findPhraseCategoryByTitle(title)?.title).toBe(title);
     }
+  });
+
+  it('G2 phrase picker row labels are unique and map back to the same category as title', () => {
+    const rows = getPhraseCategoryPickerRowLabels();
+    expect(new Set(rows).size).toBe(rows.length);
+    for (const c of PHRASE_SNIPPET_CATEGORIES) {
+      const row = phraseCategoryPickerRowLabel(c);
+      expect(findPhraseCategoryByPickerRowLabel(row)?.title).toBe(c.title);
+    }
+  });
+
+  it('resolves category picker rows case-insensitively (G2 may not preserve string casing)', () => {
+    expect(findPhraseCategoryByPickerRowLabel('travel')?.title).toBe('Directions');
+    expect(findPhraseCategoryByPickerRowLabel('  TRAVEL ')?.title).toBe('Directions');
+  });
+
+  it('resolves phrase rows case-insensitively within a category', () => {
+    expect(findSnippetInCategory('Directions', 'AIRPORT')?.phrase).toBe('airport');
+    expect(findSnippetInCategory('Directions', '  Lift ')?.phrase).toBe('elevator');
   });
 });

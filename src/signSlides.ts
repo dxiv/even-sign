@@ -39,7 +39,9 @@ const WORDS: Record<string, WordDef> = {
   sign: { title: 'SIGN', line: 'signing' },
   morning: { title: 'GOOD MORNING', line: 'time' },
   night: { title: 'GOOD NIGHT', line: 'time' },
-  bye: { title: 'GOODBYE', line: 'parting' },
+  /** Chip phrase is `goodbye`; keep `bye` alias for short inserts. */
+  bye: { title: 'GOODBYE', line: 'parting', wordKey: 'goodbye' },
+  goodbye: { title: 'GOODBYE', line: 'parting', wordKey: 'goodbye' },
   love: { title: 'LOVE', line: 'emotion' },
   learn: { title: 'LEARN', line: 'study' },
   water: { title: 'WATER', line: 'drink' },

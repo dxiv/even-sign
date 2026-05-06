@@ -41,6 +41,14 @@ describe('phraseToSlides', () => {
     expect(s[0].title).toBe('THANK YOU');
     expect(s[0].wordToken).toBe('thanks');
   });
+
+  it('maps goodbye token to GOODBYE word slide with goodbye art', () => {
+    const s = phraseToSlides('goodbye', { compactGlossary: true });
+    expect(s).toHaveLength(1);
+    expect(s[0].kind).toBe('word');
+    expect(s[0].title).toBe('GOODBYE');
+    expect(wordAssetSlug(s[0])).toBe('goodbye');
+  });
 });
 
 describe('wordAssetSlug', () => {

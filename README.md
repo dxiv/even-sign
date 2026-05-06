@@ -1,6 +1,6 @@
 # Gloss
 
-A small **Hub** page for **G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. On-glasses controls live in a **narrow vertical list on the left** (swipe to move selection, tap to act) so the **sign image** uses the wide area beside it. **Phrases** swaps the list to **topic categories** (A–Z), then **words inside each topic** (A–Z), matching the hub **Insert** chips in **`src/phraseSnippets.ts`** (100+ snippets). **Back** returns to nav from the category screen; **Up** returns to categories from a word list. A **compact** status strip sits under the slide. Each **Send** replaces the deck on glasses and returns the bar to **nav**.
+A small **Hub** page for **G2** glasses: you type or dictate a phrase, it turns into a **stack of PNG slides** (see **`src/signDimensions.json`**, currently **288×144** to use the SDK image cap) plus a status line, shipped through the official SDK. On-glasses controls live in a **narrow vertical list on the left** (swipe to move selection, tap to act) so the **sign image** uses the wide area beside it. **Phrases** swaps the list to **topic categories** (A–Z), then **words inside each topic** (A–Z), matching the hub **Insert** chips in **`src/phraseSnippets.ts`** (100+ snippets). **Double-tap** the list or ring/temple steps back (words → categories → main nav); there are no separate “Back” / “Up” rows so simulator **Up** is not confused with navigation. A **compact** status strip sits under the slide when a real deck is shown. Each **Send** replaces the deck on glasses and returns the bar to **nav**.
 
 This is a **hub integration**, not a replacement for a skilled interpreter. It does glossary words and fingerspelling-style slides; it will not win a prize for ASL grammar. It *will* put green-ish pixels where the hardware expects them.
 
@@ -40,7 +40,7 @@ Deploy **`dist/`** to whatever URL your Even hub configuration uses.
 
 ### Release hygiene
 
-- **`package.json`** and **`app.json`** versions should match (currently **1.1.2**). Hub **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix). **`package_id`** must stay **`com.dxiv.evensign`** so uploads match the original Hub store app (display name is still **Gloss** in `name`).
+- **`package.json`** and **`app.json`** versions should match (currently **1.0.0**). Hub **`evenhub pack`** requires **`app.json`** `version` in **`x.y.z`** form (no prerelease suffix). `app.json` uses `package_id` **`com.dxiv.gloss`**.
 - **`npm run test`** — Vitest unit tests under `src/**/*.test.ts`. **`npm run build`** runs tests, then Typecheck + Vite.
 - **CI** — `.github/workflows/ci.yml` runs `npm ci` and `npm run build` on push/PR to `main` or `master`.
 - **Fonts** — JetBrains Mono is loaded from Google Fonts in `index.html` (network + third party). Self-host for stricter offline policies.
