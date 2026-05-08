@@ -19,6 +19,9 @@ function forceBrowserOnly(): boolean {
 
 async function main() {
   const loading = document.getElementById('loading-line');
+  if (forceBrowserOnly()) {
+    document.documentElement.classList.add('ev-browser-mode');
+  }
 
   let bridge: Awaited<ReturnType<typeof waitForEvenAppBridge>> | null = null;
   let bridgeAbsentReason: 'browser' | 'timeout' | undefined;

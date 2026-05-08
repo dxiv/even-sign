@@ -13,6 +13,7 @@ import { PHRASE_SNIPPET_CATEGORIES } from './phraseSnippets';
 import { phraseToSlides, type PhraseToSlidesOptions } from './signSlides';
 import { slideDeckDelayAfterSlide } from './slideDeckTiming';
 import { slideToPngBytes, type SlideToPngOptions } from './signRender';
+import { addRecent, loadUserPrefs, toggleFavorite, type UserPrefs } from './userPrefs';
 
 type InitOpts = {
   bridge: EvenAppBridge | null;
@@ -28,6 +29,33 @@ type PreviewEls = {
 
 const LS_COMPACT = 'gloss_compact';
 const LS_CAPTIONS = 'gloss_captions';
+
+function renderSavedChipRow(container: HTMLElement, items: string[], prefs: UserPrefs): void {
+  container.replaceChildren();
+  const frag = document.createDocumentFragment();
+  for (const phrase of items) {
+    const chip = document.createElement('div');
+    chip.className = 'ev-chip';
+    chip.dataset.phrase = phrase;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ev-chip__btn';
+    btn.dataset.action = 'insert';
+    btn.textContent = phrase;
+
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'ev-chip__star';
+    star.dataset.action = 'star';
+    star.setAttribute('aria-pressed', prefs.favorites.includes(phrase) ? 'true' : 'false');
+    star.textContent = '★';
+
+    chip.append(btn, star);
+    frag.appendChild(chip);
+  }
+  container.appendChild(frag);
+}
 
 function getSpeechRecognition(): SpeechRecognition | null {
   const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -76,20 +104,36 @@ function renderPhraseQuickChips(container: HTMLElement): void {
   insertLbl.className = 'ev-sign-quick__label';
   insertLbl.textContent = 'Insert';
   frag.appendChild(insertLbl);
+  const master = document.createElement('details');
+  master.className = 'ev-quick-master';
+  const sum = document.createElement('summary');
+  sum.className = 'ev-quick-master__summary';
+  sum.textContent = 'Quick phrases';
+  master.appendChild(sum);
+  const body = document.createElement('div');
+  body.className = 'ev-quick-master__body';
   for (const cat of PHRASE_SNIPPET_CATEGORIES) {
-    const head = document.createElement('div');
-    head.className = 'ev-sign-quick__cat';
-    head.textContent = cat.title;
-    frag.appendChild(head);
-    for (const s of cat.snippets) {
+    const d = document.createElement('details');
+    d.className = 'ev-quick-details';
+    const s = document.createElement('summary');
+    s.className = 'ev-quick-details__summary';
+    s.textContent = cat.title;
+    d.appendChild(s);
+    const bdy = document.createElement('div');
+    bdy.className = 'ev-quick-details__body';
+    for (const snip of cat.snippets) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'ev-sign-chip';
-      b.dataset.snippet = s.phrase;
-      b.textContent = s.label;
-      frag.appendChild(b);
+      b.dataset.snippet = snip.phrase;
+      b.textContent = snip.label;
+      bdy.appendChild(b);
     }
+    d.appendChild(bdy);
+    body.appendChild(d);
   }
+  master.appendChild(body);
+  frag.appendChild(master);
   container.appendChild(frag);
 }
 
@@ -227,6 +271,8 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
   const chkCaptions = document.getElementById('ev-sign-captions') as HTMLInputElement | null;
   const chkAnim = document.getElementById('ev-sign-anim') as HTMLInputElement | null;
   const quickRow = document.getElementById('ev-sign-quick');
+  const savedFavs = document.getElementById('ev-saved-favorites');
+  const savedRecents = document.getElementById('ev-saved-recents');
 
   const previewEls: PreviewEls = { img: preview, placeholder, label };
 
@@ -235,6 +281,14 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
   if (quickRow) {
     renderPhraseQuickChips(quickRow);
   }
+
+  let prefs = loadUserPrefs();
+  const rerenderSaved = () => {
+    prefs = loadUserPrefs();
+    if (savedFavs) renderSavedChipRow(savedFavs, prefs.favorites, prefs);
+    if (savedRecents) renderSavedChipRow(savedRecents, prefs.recents.map((r) => r.phrase), prefs);
+  };
+  rerenderSaved();
 
   applyStoredToggle(chkCompact, LS_COMPACT, false);
   applyStoredToggle(chkCaptions, LS_CAPTIONS, true);
@@ -275,6 +329,10 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
     }
     try {
       const text = ta?.value?.trim() ?? '';
+      if (text) {
+        prefs = addRecent(prefs, text);
+        rerenderSaved();
+      }
       syncBridgeRenderingFromUi();
       setGlassesAutoplayPreference(previewAnimEnabled());
 
@@ -330,14 +388,35 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
 
   if (quickRow && ta) {
     quickRow.addEventListener('click', (e) => {
-      const t = (e.target as HTMLElement).closest('button[data-snippet]');
-      if (!t || !(t instanceof HTMLButtonElement)) return;
-      const snippet = t.dataset.snippet;
-      if (!snippet) return;
-      insertSnippet(ta, snippet);
+      const btn = (e.target as HTMLElement).closest('button');
+      if (!btn || !(btn instanceof HTMLButtonElement)) return;
+      const phrase = btn.dataset.snippet;
+      if (!phrase) return;
+      insertSnippet(ta, phrase);
       refreshPreview();
     });
   }
+
+  const onSavedClick = (e: Event) => {
+    if (!ta) return;
+    const btn = (e.target as HTMLElement).closest('button');
+    if (!btn || !(btn instanceof HTMLButtonElement)) return;
+    const chip = btn.closest('[data-phrase]') as HTMLElement | null;
+    const phrase = chip?.dataset.phrase?.trim();
+    if (!phrase) return;
+    const action = btn.dataset.action;
+    if (action === 'star') {
+      prefs = toggleFavorite(prefs, phrase);
+      rerenderSaved();
+      return;
+    }
+    if (action === 'insert') {
+      insertSnippet(ta, phrase);
+      refreshPreview();
+    }
+  };
+  savedFavs?.addEventListener('click', onSavedClick);
+  savedRecents?.addEventListener('click', onSavedClick);
 
   let rec: SpeechRecognition | null = null;
   btnSpeak?.addEventListener('click', () => {

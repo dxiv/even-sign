@@ -11,15 +11,16 @@ export const SIGN_IMAGE_HEIGHT: number = dims.SIGN_IMAGE_HEIGHT;
 const G2_PANEL_W = 576;
 const G2_PANEL_H = 288;
 
-/** Max nav list rows when a deck is on-screen (`NAV_LIST_NAMES_FULL` in `glossBridge.ts`). Home uses phrase categories, not this count. */
-export const GLASSES_NAV_ITEM_COUNT = 6;
+/** Max nav list rows when a deck is on-screen (`glassesNavListNames` in `glossBridge.ts`). */
+export const GLASSES_NAV_ITEM_COUNT = 8;
 
 /** Display lens layout tokens (576×288): prioritize sign area; balance list vs status borders. */
-const GLASSES_MARGIN_TOP = 3;
+// Top inset so the firmware selection border never draws past the list container.
+const GLASSES_MARGIN_TOP = 6;
 const GLASSES_LIST_X = 5;
 const GLASSES_LIST_Y = GLASSES_MARGIN_TOP;
 /** Nav + phrase rows: wide enough for labels like “Phrases” / “appointment” without clipping. */
-const GLASSES_LIST_W = 100;
+const GLASSES_LIST_W = 168;
 /** Space between list chrome and sign area so borders do not visually crowd the image. */
 const GLASSES_GAP_LIST_IMAGE = 5;
 const GLASSES_GAP_ABOVE_TEXT = 3;
@@ -64,6 +65,8 @@ export type GlassesPanelLayoutOptions = {
    * Category/word lists should use `false` so the column stays scrollable.
    */
   compactNavList?: boolean;
+  /** When `compactNavList` is on, size list to this row count (optional). */
+  compactNavListRows?: number;
 };
 
 export type GlassesListRect = {
@@ -89,7 +92,10 @@ export type GlassesImageRect = {
 /** Full inner width for list rows (`itemWidth` on PB). */
 export function glassesListItemRowWidth(list: GlassesListRect): number {
   const inner = Math.max(0, list.w - 2 * list.paddingLength);
-  return Math.max(36, inner);
+  // Selection outline is drawn slightly outside the row bounds on some firmware/sim builds.
+  // Keep a small gutter so the highlight never clips past the list container border.
+  const gutter = 6;
+  return Math.max(36, inner - gutter);
 }
 
 /**
@@ -110,8 +116,12 @@ export function glassesPanelLayout(opts?: GlassesPanelLayoutOptions): {
   const fullListH = Math.max(1, listColumnBottom - listColumnTop);
   let listH = fullListH;
   if (opts?.compactNavList === true) {
+    const rows =
+      typeof opts.compactNavListRows === 'number' && Number.isFinite(opts.compactNavListRows)
+        ? Math.max(1, Math.round(opts.compactNavListRows))
+        : GLASSES_NAV_IDLE_ROW_COUNT;
     const body =
-      GLASSES_NAV_IDLE_ROW_COUNT * GLASSES_LIST_ROW_APPROX_PX +
+      rows * GLASSES_LIST_ROW_APPROX_PX +
       2 * GLASSES_LIST_PAD +
       2 * GLASSES_LIST_BORDER_W +
       10;

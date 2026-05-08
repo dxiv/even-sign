@@ -429,11 +429,14 @@ body {
 }
 
 .ev-hero__wordmark {
+  display: inline-block;
   background: linear-gradient(180deg, #d2ebe0 0%, #9ed4b0 28%, var(--ev-green) 78%, var(--ev-green-deep) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 0 28px rgba(61, 255, 106, 0.12));
+  /* Optical centering: the “G” overhang reads slightly left. */
+  transform: translateX(0.05em);
 }
 
 .ev-tagline {
@@ -463,6 +466,21 @@ body {
 
 /* Hero-only capture for app listings */
 html.ev-screenshot-mode .ev-panel {
+  display: none !important;
+}
+
+/* Browser-only preview mode (?pc=1): keep the UI minimal. */
+html.ev-browser-mode .ev-sign-topline,
+html.ev-browser-mode .ev-more {
+  display: none !important;
+}
+
+html.ev-browser-mode .ev-home {
+  display: none !important;
+}
+
+html.ev-browser-mode .hub-console,
+html.ev-browser-mode .ev-sign-toggles {
   display: none !important;
 }
 
@@ -681,7 +699,7 @@ html.ev-screenshot-mode .ev-stage {
   font-size: 11px;
   color: var(--ev-muted);
   /* Card uses overflow:hidden; letter-spacing on headings can extend past the last glyph. */
-  padding-inline: 4px;
+  padding-inline: 10px;
 }
 
 .ev-sign-quick__label {
@@ -707,6 +725,94 @@ html.ev-screenshot-mode .ev-stage {
 
 .ev-sign-quick__label + .ev-sign-quick__cat {
   margin-top: 4px;
+}
+
+/* Browser-only quick phrases: collapsible categories. */
+.ev-quick-master {
+  flex-basis: 100%;
+  margin-top: 8px;
+}
+
+.ev-quick-master__summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ev-muted-bright);
+  user-select: none;
+}
+
+.ev-quick-master__summary::-webkit-details-marker {
+  display: none;
+}
+
+.ev-quick-master__summary::after {
+  content: '';
+  display: inline-block;
+  width: 0.35em;
+  height: 0.35em;
+  margin-left: 0.55em;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translateY(-0.15em);
+  opacity: 0.55;
+  vertical-align: middle;
+}
+
+.ev-quick-master[open] .ev-quick-master__summary::after {
+  transform: rotate(225deg) translateY(0.05em);
+}
+
+.ev-quick-master__body {
+  margin-top: 8px;
+}
+
+.ev-quick-details {
+  flex-basis: 100%;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+}
+
+.ev-quick-details__summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ev-muted-bright);
+  user-select: none;
+}
+
+.ev-quick-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.ev-quick-details__summary::after {
+  content: '';
+  display: inline-block;
+  width: 0.35em;
+  height: 0.35em;
+  margin-left: 0.55em;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translateY(-0.15em);
+  opacity: 0.55;
+  vertical-align: middle;
+}
+
+.ev-quick-details[open] .ev-quick-details__summary::after {
+  transform: rotate(225deg) translateY(0.05em);
+}
+
+.ev-quick-details__body {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .ev-sign-chip {
@@ -788,6 +894,86 @@ html.ev-screenshot-mode .ev-stage {
   outline: none;
   border-color: var(--ev-green-dim);
   box-shadow: 0 0 0 1px var(--ev-green-glow);
+}
+
+.ev-saved {
+  margin-top: 10px;
+  padding: 10px 10px 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ev-saved__row + .ev-saved__row {
+  margin-top: 10px;
+}
+
+.ev-saved__head {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ev-muted-bright);
+  margin-bottom: 8px;
+}
+
+.ev-saved__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 8px;
+}
+
+.ev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ev-line);
+  background: rgba(6, 14, 10, 0.65);
+  padding: 6px 10px;
+  min-height: 40px;
+}
+
+.ev-chip__btn {
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border: none;
+  background: transparent;
+  color: var(--ev-text);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ev-chip__btn:hover {
+  color: var(--ev-green-bright);
+}
+
+.ev-chip__star {
+  font: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ev-muted-bright);
+  cursor: pointer;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ev-chip__star[aria-pressed='true'] {
+  color: var(--ev-bg);
+  background: var(--ev-green);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 18px rgba(61, 255, 106, 0.22);
+}
+
+.ev-chip__star:focus-visible {
+  outline: 2px solid var(--ev-green);
+  outline-offset: 2px;
 }
 
 .ev-sign-actions {
@@ -970,7 +1156,7 @@ html.ev-screenshot-mode .ev-stage {
 }
 
 .hub-card__main {
-  padding: 14px 14px 14px;
+  padding: 14px 16px 14px;
 }
 
 .hub-card__hint {

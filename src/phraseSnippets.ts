@@ -48,7 +48,6 @@ const PHRASE_SNIPPET_CATEGORIES_RAW: PhraseSnippetCategory[] = [
   {
     id: 'basics',
     title: 'Basics',
-    hidden: true,
     snippets: [
       { label: 'again', phrase: 'again' },
       { label: 'bad', phrase: 'bad' },

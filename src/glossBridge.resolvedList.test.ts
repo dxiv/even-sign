@@ -18,10 +18,14 @@ describe('resolvedListItemName', () => {
   });
 
   it('resolves category rows on home (default phrases + categories)', () => {
-    const cats = getPhraseCategoryPickerRowLabels();
-    expect(cats.length).toBeGreaterThan(1);
-    expect(resolvedListItemName({ currentSelectItemIndex: 0 })).toBe(cats[0]);
-    expect(resolvedListItemName({ currentSelectItemIndex: 1 })).toBe(cats[1]);
+    __testSetGlossBridgeState({
+      menuMode: 'phrases',
+      phraseScreen: { kind: 'root' },
+      slides: [],
+    });
+    expect(resolvedListItemName({ currentSelectItemIndex: 0 })).toBe('__header__');
+    expect(resolvedListItemName({ currentSelectItemIndex: 1 })).toBe('Browse');
+    expect(resolvedListItemName({ currentSelectItemIndex: 2 })).toBe('Recents');
   });
 
   it('prefers in-range index over stale name (nav list)', () => {
@@ -30,8 +34,8 @@ describe('resolvedListItemName', () => {
       phraseScreen: { kind: 'categories' },
       slides: [PLACEHOLDER_SLIDE],
     });
-    expect(resolvedListItemName({ currentSelectItemName: 'Prev', currentSelectItemIndex: 0 })).toBe('Prev');
-    expect(resolvedListItemName({ currentSelectItemName: 'Exit', currentSelectItemIndex: 0 })).toBe('Prev');
+    expect(resolvedListItemName({ currentSelectItemName: 'Prev', currentSelectItemIndex: 1 })).toBe('Prev');
+    expect(resolvedListItemName({ currentSelectItemName: 'Exit', currentSelectItemIndex: 1 })).toBe('Prev');
   });
 
   it('falls back to currentSelectItemName when index is missing', () => {
@@ -44,9 +48,14 @@ describe('resolvedListItemName', () => {
   });
 
   it('coerces string index from host JSON (G2 / simulator)', () => {
-    const cats = getPhraseCategoryPickerRowLabels();
-    expect(resolvedListItemName({ currentSelectItemIndex: '0' })).toBe(cats[0]);
-    expect(resolvedListItemName({ CurrentSelect_ItemIndex: '1' })).toBe(cats[1]);
+    __testSetGlossBridgeState({
+      menuMode: 'phrases',
+      phraseScreen: { kind: 'root' },
+      slides: [],
+    });
+    expect(resolvedListItemName({ currentSelectItemIndex: '0' })).toBe('__header__');
+    expect(resolvedListItemName({ CurrentSelect_ItemIndex: '1' })).toBe('Browse');
+    expect(resolvedListItemName({ CurrentSelect_ItemIndex: '2' })).toBe('Recents');
   });
 
   it('maps truncated Phrases row labels on nav (G2 list firmware)', () => {
@@ -61,15 +70,18 @@ describe('resolvedListItemName', () => {
   });
 
   it('treats 1-based last-row index when host sends n instead of n-1', () => {
-    const cats = getPhraseCategoryPickerRowLabels();
-    const n = cats.length;
-    expect(resolvedListItemName({ currentSelectItemIndex: n })).toBe(cats[n - 1]);
+    __testSetGlossBridgeState({
+      menuMode: 'nav',
+      phraseScreen: { kind: 'root' },
+      slides: [PLACEHOLDER_SLIDE],
+    });
+    // nav list has header + 6 actions
+    expect(resolvedListItemName({ currentSelectItemIndex: 7 })).toBe('Exit');
   });
 
   it('returns undefined for unknown index or empty payload', () => {
-    const cats = getPhraseCategoryPickerRowLabels();
     expect(resolvedListItemName({})).toBeUndefined();
-    expect(resolvedListItemName({ currentSelectItemIndex: cats.length + 1 })).toBeUndefined();
+    expect(resolvedListItemName({ currentSelectItemIndex: 99 })).toBeUndefined();
     expect(resolvedListItemName({ currentSelectItemIndex: -1 })).toBeUndefined();
   });
 });

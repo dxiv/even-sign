@@ -21,6 +21,7 @@ import {
   SIGN_IMAGE_HEIGHT,
   SIGN_IMAGE_WIDTH,
   assertGlassesLayout,
+  glassesListItemRowWidth,
   glassesPanelLayout,
   type GlassesPanelLayoutOptions,
 } from './signConstants';
@@ -36,6 +37,7 @@ import {
 import { slideToPngBytes, type SlideToPngOptions } from './signRender';
 import { phraseToSlides, type PhraseToSlidesOptions, type SignSlide } from './signSlides';
 import { slideDeckDelayAfterSlide } from './slideDeckTiming';
+import { addRecent, isFavorite, loadUserPrefs, toggleFavorite } from './userPrefs';
 
 /** G2 list labels: short readable English (row width is tight; clarity beats opaque glyphs). */
 const ITEM_PREV = 'Prev';
@@ -46,22 +48,31 @@ const ITEM_CLEAR = 'Clear';
 /** Opens quick phrases (same snippets as phone quick-insert). */
 const ITEM_PHRASES = 'Phrases';
 const ITEM_EXIT = 'Exit';
+/** Non-action top row: shows the current context (screen/selection). */
+const ITEM_HEADER = '__header__';
+const ITEM_BACK = 'Back';
+const ITEM_RECENTS = 'Recents';
+const ITEM_FAVORITES = 'Favorites';
+const ITEM_BROWSE = 'Browse';
+const ITEM_FAV_ON = '★';
+const ITEM_FAV_OFF = '☆';
 
 /** Full nav when a phrase deck is on-screen (Prev … Exit). Idle/home uses phrase categories instead of this list. */
 const NAV_LIST_NAMES_FULL = [
   ITEM_PREV,
   ITEM_NEXT,
   ITEM_REPLAY,
+  ITEM_FAV_ON,
   ITEM_CLEAR,
   ITEM_PHRASES,
   ITEM_EXIT,
 ] as const;
 
 /** Max nav rows (full deck). Keep in sync with `GLASSES_NAV_ITEM_COUNT` in `signConstants.ts`. */
-export const GLASSES_NAV_LIST_LEN = NAV_LIST_NAMES_FULL.length;
+export const GLASSES_NAV_LIST_LEN = NAV_LIST_NAMES_FULL.length + 1;
 
 function glassesNavListNames(): readonly string[] {
-  return NAV_LIST_NAMES_FULL;
+  return [ITEM_HEADER, ...NAV_LIST_NAMES_FULL];
 }
 
 /** Longest list the glasses phrases UI builds (scrollable vertical list). */
@@ -72,13 +83,16 @@ export const GLASSES_PHRASE_MAX_LIST_LEN = Math.max(
 
 type GlassesMenuMode = 'nav' | 'phrases';
 
-/** Two-step phrases UI: pick a category, then a snippet (A–Z within each). */
+/** Phrases UI: root → (recents | favorites | categories | words). */
 type GlassesPhraseScreen =
+  | { kind: 'root' }
+  | { kind: 'recents' }
+  | { kind: 'favorites' }
   | { kind: 'categories' }
   | { kind: 'words'; categoryTitle: string };
 
 let glassesMenuMode: GlassesMenuMode = 'phrases';
-let glassesPhraseScreen: GlassesPhraseScreen = { kind: 'categories' };
+let glassesPhraseScreen: GlassesPhraseScreen = { kind: 'root' };
 
 function eqGlassesName(name: string, literal: string): boolean {
   return name.trim().toLowerCase() === literal.trim().toLowerCase();
@@ -120,13 +134,17 @@ function handleGlobalDoubleTap(): void {
   if (glassesMenuMode === 'phrases') {
     if (glassesPhraseScreen.kind === 'words') {
       glassesPhraseScreen = { kind: 'categories' };
-      void (async () => {
-        const ok = await rebuildGlassesMenu('phrases');
-        if (ok) void showSlide(slideIndex);
-      })();
+    } else if (glassesPhraseScreen.kind !== 'root') {
+      glassesPhraseScreen = { kind: 'root' };
+    } else {
+      // Not in the idle/home state (e.g. deck loaded); clear deck.
+      void displayPhraseOnGlasses('');
       return;
     }
-    void displayPhraseOnGlasses('');
+    void (async () => {
+      const ok = await rebuildGlassesMenu('phrases');
+      if (ok) void showSlide(slideIndex);
+    })();
     return;
   }
 
@@ -139,19 +157,72 @@ function handleGlobalDoubleTap(): void {
  * `itemName` on the list container.
  */
 function glassesPhraseListItemNames(): string[] {
+  const prefs = loadUserPrefs();
+  const recents = prefs.recents.map((r) => r.phrase);
+  const favorites = prefs.favorites;
+
+  if (glassesPhraseScreen.kind === 'root') {
+    return [ITEM_HEADER, ITEM_BROWSE, ITEM_RECENTS, ITEM_FAVORITES];
+  }
+  if (glassesPhraseScreen.kind === 'recents') {
+    return [ITEM_HEADER, ...recents, ITEM_BACK];
+  }
+  if (glassesPhraseScreen.kind === 'favorites') {
+    return [ITEM_HEADER, ...favorites, ITEM_BACK];
+  }
   if (glassesPhraseScreen.kind === 'categories') {
-    return [...getPhraseCategoryPickerRowLabels()];
+    return [ITEM_HEADER, ...getPhraseCategoryPickerRowLabels(), ITEM_BACK];
   }
   const cat = findPhraseCategoryByTitle(glassesPhraseScreen.categoryTitle);
   if (!cat) {
     glassesPhraseScreen = { kind: 'categories' };
-    return [...getPhraseCategoryPickerRowLabels()];
+    return [ITEM_HEADER, ...getPhraseCategoryPickerRowLabels(), ITEM_BACK];
   }
-  return [...cat.snippets.map((s) => phraseSnippetGlassesRowLabel(s))];
+  return [ITEM_HEADER, ...cat.snippets.map((s) => phraseSnippetGlassesRowLabel(s)), ITEM_BACK];
 }
 
 function glassesListNames(): readonly string[] {
   return glassesMenuMode === 'nav' ? glassesNavListNames() : glassesPhraseListItemNames();
+}
+
+function headerLabelForCurrentList(): string {
+  const fmt = (raw: string): string => {
+    const t = raw.trim();
+    return t ? `> ${t}` : '> —';
+  };
+  if (glassesMenuMode === 'phrases') {
+    switch (glassesPhraseScreen.kind) {
+      case 'root':
+        return fmt('Phrases');
+      case 'recents':
+        return fmt('Recents');
+      case 'favorites':
+        return fmt('Favorites');
+      case 'categories':
+        return fmt('Browse');
+      case 'words': {
+        const cat = findPhraseCategoryByTitle(glassesPhraseScreen.categoryTitle);
+        const row = cat ? (cat.glassesRowLabel ?? cat.title) : glassesPhraseScreen.categoryTitle;
+        return fmt(row);
+      }
+      default:
+        return fmt('Phrases');
+    }
+  }
+  // nav mode: show current slide title (or Gloss when idle), trimmed for the narrow column
+  const t = deckHeaderLabel.trim() || slides[slideIndex]?.title?.trim() || 'Gloss';
+  return fmt(t);
+}
+
+function setHeaderFocus(_raw: string): void {
+  // Intentionally disabled: no ellipses or auto-scrolling (premium feel).
+  void _raw;
+}
+
+function capitalizeFirst(s: string): string {
+  const t = s.trim();
+  if (!t) return t;
+  return t[0].toUpperCase() + t.slice(1).toLowerCase();
 }
 
 export function resolvedListItemName(list: unknown): string | undefined {
@@ -172,6 +243,15 @@ export function resolvedListItemName(list: unknown): string | undefined {
     if (idx >= 0 && idx < names.length) return names[idx];
     /** Some builds use 1-based indices; last row is often `n` instead of `n - 1`. */
     if (names.length > 0 && idx === names.length) return names[idx - 1];
+    /**
+     * Some firmware builds appear to send 1-based indices for the phrases/category list, but not
+     * consistently. Only apply this fallback when:
+     * - we're in phrases mode, and
+     * - there's no reliable row label present to disambiguate.
+     */
+    if (glassesMenuMode === 'phrases' && !trimmed) {
+      if (idx >= 1 && idx <= names.length) return names[idx - 1];
+    }
   }
 
   if (trimmed) {
@@ -274,6 +354,11 @@ let slides: SignSlide[] = [];
 let slideIndex = 0;
 const pngCache: Uint8Array[] = [];
 let sendChain: Promise<void> = Promise.resolve();
+/** Human-readable label for the currently loaded deck (header row in nav). */
+let deckHeaderLabel = '';
+function clearHeaderFocus(): void {
+  // no-op (marquee disabled)
+}
 
 /** Bumped on each new phrase so stale image uploads are ignored. */
 let activePhraseEpoch = 0;
@@ -303,10 +388,13 @@ let lastLayoutOmitBottomStrip: boolean | null = null;
 
 function layoutOpts(_ctxMode: GlassesMenuMode = glassesMenuMode): GlassesPanelLayoutOptions {
   void _ctxMode;
+  const isCompactPhrasesRoot =
+    _ctxMode === 'phrases' && glassesPhraseScreen.kind === 'root';
   return {
     omitBottomStatusStrip: currentOmitBottomStatusStrip(),
     /** Use full-height list column for reliable G2 taps (categories home + phrases use the same slot). */
-    compactNavList: false,
+    compactNavList: isCompactPhrasesRoot,
+    compactNavListRows: isCompactPhrasesRoot ? glassesPhraseListItemNames().length : undefined,
   };
 }
 
@@ -429,7 +517,18 @@ function startupFailureMessage(code: StartUpPageCreateResult): string {
 
 function navList(): ListContainerProperty {
   const L = layoutSnapshot('nav').list;
-  const names = [...glassesNavListNames()];
+  const canonical = [...glassesNavListNames()];
+  const fav = deckHeaderLabel.trim() ? isFavorite(loadUserPrefs(), deckHeaderLabel) : false;
+  const actionNames = [
+    ITEM_PREV,
+    ITEM_NEXT,
+    ITEM_REPLAY,
+    fav ? ITEM_FAV_ON : ITEM_FAV_OFF,
+    ITEM_CLEAR,
+    ITEM_PHRASES,
+    ITEM_EXIT,
+  ];
+  const names = [headerLabelForCurrentList(), ...actionNames];
   return new ListContainerProperty({
     xPosition: L.x,
     yPosition: L.y,
@@ -442,9 +541,9 @@ function navList(): ListContainerProperty {
     containerID: 1,
     containerName: CONTAINER_LIST,
     itemContainer: new ListItemContainerProperty({
-      itemCount: names.length,
+      itemCount: canonical.length,
       /** `0` = firmware auto-fill row width (G2 list docs); avoids swipe/selection glitches with some fixed widths. */
-      itemWidth: 0,
+      itemWidth: glassesListItemRowWidth(L),
       isItemSelectBorderEn: 1,
       itemName: names,
     }),
@@ -454,7 +553,16 @@ function navList(): ListContainerProperty {
 
 function phrasesList(): ListContainerProperty {
   const L = layoutSnapshot('phrases').list;
-  const names = glassesPhraseListItemNames();
+  const canonical = glassesPhraseListItemNames();
+  const body = canonical.slice(1);
+  const displayBody = body.map((s) => {
+    if (s === ITEM_BACK) return '< Back';
+    if (glassesPhraseScreen.kind === 'categories') return capitalizeFirst(s);
+    if (glassesPhraseScreen.kind === 'words') return s.toLowerCase();
+    if (glassesPhraseScreen.kind === 'root') return capitalizeFirst(s);
+    return s.toLowerCase();
+  });
+  const names = [headerLabelForCurrentList(), ...displayBody];
   return new ListContainerProperty({
     xPosition: L.x,
     yPosition: L.y,
@@ -467,8 +575,8 @@ function phrasesList(): ListContainerProperty {
     containerID: 1,
     containerName: CONTAINER_LIST,
     itemContainer: new ListItemContainerProperty({
-      itemCount: names.length,
-      itemWidth: 0,
+      itemCount: canonical.length,
+      itemWidth: glassesListItemRowWidth(L),
       isItemSelectBorderEn: 1,
       itemName: names,
     }),
@@ -481,7 +589,7 @@ function isGlassesHomeState(): boolean {
   if (!(slides.length === 1 && slides[0]?.kind === 'placeholder')) return false;
   return (
     glassesMenuMode === 'phrases' &&
-    glassesPhraseScreen.kind === 'categories'
+    glassesPhraseScreen.kind === 'root'
   );
 }
 
@@ -713,6 +821,9 @@ export async function displayPhraseOnGlasses(
   stopGlassesAutoplay();
   glassesAutoplaySessionPaused = false;
   const t = phrase.trim();
+  deckHeaderLabel = t;
+  if (t) setHeaderFocus(t);
+  if (t) addRecent(loadUserPrefs(), t);
   const forceGlassesPhraseDeck =
     opts?.glassesPhraseAutoplay === true && t.length > 1;
   glassesForceReplayAutoplay = forceGlassesPhraseDeck;
@@ -724,7 +835,9 @@ export async function displayPhraseOnGlasses(
   sendChain = Promise.resolve();
 
   if (t.length === 0) {
-    glassesPhraseScreen = { kind: 'categories' };
+    deckHeaderLabel = '';
+    clearHeaderFocus();
+    glassesPhraseScreen = { kind: 'root' };
     await rebuildGlassesMenu('phrases');
   } else if (glassesMenuMode !== 'nav') {
     await rebuildGlassesMenu('nav');
@@ -784,28 +897,80 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
       handleGlobalDoubleTap();
       return;
     }
-    if (
-      listEt === OsEventTypeList.SCROLL_TOP_EVENT ||
-      listEt === OsEventTypeList.SCROLL_BOTTOM_EVENT
-    ) {
+    /**
+     * G2 firmware sometimes reports a tap on the edge row (first/last) as a scroll-edge event.
+     * If we ignore these entirely, the top option can become “unclickable” in the phrases list.
+     * We still resolve the selected row below and handle it like a normal selection.
+     */
+
+    const edgeRow = (): string | undefined => {
+      const names = glassesListNames();
+      if (names.length === 0) return undefined;
+      // Top row is a non-action header; use the first actionable row instead.
+      if (listEt === OsEventTypeList.SCROLL_TOP_EVENT) return names[1] ?? names[0];
+      if (listEt === OsEventTypeList.SCROLL_BOTTOM_EVENT) return names[names.length - 1];
+      return undefined;
+    };
+
+    /**
+     * On some firmware/simulator builds, tapping the first row reports as `SCROLL_TOP_EVENT`
+     * and may carry stale row payload. In phrases mode, treat scroll-edge events as an
+     * explicit activation of the edge row.
+     */
+    const name =
+      glassesMenuMode === 'phrases' && (listEt === OsEventTypeList.SCROLL_TOP_EVENT || listEt === OsEventTypeList.SCROLL_BOTTOM_EVENT)
+        ? edgeRow()
+        : resolvedListItemName(listRec) ?? (glassesMenuMode === 'phrases' ? edgeRow() : undefined);
+    if (!name) return;
+    if (name === ITEM_HEADER) {
       return;
     }
-
-    const name = resolvedListItemName(listRec);
-    if (!name) return;
+    // In phrases mode, show the highlighted phrase in the header (marquee if needed).
+    // In nav mode, keep showing the current deck phrase instead of "Prev/Next/...".
+    if (glassesMenuMode === 'phrases') setHeaderFocus(name);
 
     if (glassesMenuMode === 'phrases') {
-      if (glassesPhraseScreen.kind === 'categories') {
-        const cat = findPhraseCategoryByPickerRowLabel(name);
-        if (cat) {
-          glassesPhraseScreen = { kind: 'words', categoryTitle: cat.title };
-          void (async () => {
-            const ok = await rebuildGlassesMenu('phrases');
-            if (ok) void showSlide(slideIndex);
-          })();
-        }
+      if (eqGlassesName(name, ITEM_BACK)) {
+        if (glassesPhraseScreen.kind === 'words') glassesPhraseScreen = { kind: 'categories' };
+        else if (glassesPhraseScreen.kind === 'categories') glassesPhraseScreen = { kind: 'root' };
+        else glassesPhraseScreen = { kind: 'root' };
+        void (async () => {
+          const ok = await rebuildGlassesMenu('phrases');
+          if (ok) void showSlide(slideIndex);
+        })();
         return;
       }
+
+      if (glassesPhraseScreen.kind === 'root') {
+        if (eqGlassesName(name, ITEM_RECENTS)) glassesPhraseScreen = { kind: 'recents' };
+        else if (eqGlassesName(name, ITEM_FAVORITES)) glassesPhraseScreen = { kind: 'favorites' };
+        else if (eqGlassesName(name, ITEM_BROWSE)) glassesPhraseScreen = { kind: 'categories' };
+        else return;
+        void (async () => {
+          const ok = await rebuildGlassesMenu('phrases');
+          if (ok) void showSlide(slideIndex);
+        })();
+        return;
+      }
+
+      if (glassesPhraseScreen.kind === 'recents' || glassesPhraseScreen.kind === 'favorites') {
+        // `name` is the phrase itself in these lists.
+        void displayPhraseOnGlasses(name, { glassesPhraseAutoplay: true });
+        return;
+      }
+
+      if (glassesPhraseScreen.kind === 'categories') {
+        const cat = findPhraseCategoryByPickerRowLabel(name);
+        if (!cat) return;
+        glassesPhraseScreen = { kind: 'words', categoryTitle: cat.title };
+        void (async () => {
+          const ok = await rebuildGlassesMenu('phrases');
+          if (ok) void showSlide(slideIndex);
+        })();
+        return;
+      }
+
+      // words
       const chip = findSnippetInCategory(glassesPhraseScreen.categoryTitle, name);
       if (chip) {
         void displayPhraseOnGlasses(chip.phrase, { glassesPhraseAutoplay: true });
@@ -840,12 +1005,20 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
       void showSlide(0);
       return;
     }
+    if (eqGlassesName(name, ITEM_FAV_ON) || eqGlassesName(name, ITEM_FAV_OFF)) {
+      const p = deckHeaderLabel.trim();
+      if (p) {
+        toggleFavorite(loadUserPrefs(), p);
+        void rebuildGlassesMenu('nav');
+      }
+      return;
+    }
     if (eqGlassesName(name, ITEM_CLEAR)) {
       void displayPhraseOnGlasses('');
       return;
     }
     if (eqGlassesName(name, ITEM_PHRASES)) {
-      glassesPhraseScreen = { kind: 'categories' };
+      glassesPhraseScreen = { kind: 'root' };
       void (async () => {
         const ok = await rebuildGlassesMenu('phrases');
         if (ok) void showSlide(slideIndex);
