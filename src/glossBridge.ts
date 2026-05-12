@@ -127,7 +127,7 @@ function handleGlobalDoubleTap(): void {
   stopGlassesAutoplay();
 
   if (isGlassesHomeState()) {
-    void b.shutDownPageContainer(1);
+    requestHubExitWithConfirmation();
     return;
   }
 
@@ -384,7 +384,17 @@ function currentOmitBottomStatusStrip(): boolean {
   return slides.length === 1 && slides[0]?.kind === 'placeholder';
 }
 
-let lastLayoutOmitBottomStrip: boolean | null = null;
+/** Tracks any glasses plane change (strip, list height mode, phrase drill-down). */
+let lastGlassesLayoutSignature: string | null = null;
+
+function glassesLayoutSignature(): string {
+  return [
+    currentOmitBottomStatusStrip() ? '1' : '0',
+    layoutOpts().compactNavList === true ? '1' : '0',
+    glassesMenuMode,
+    JSON.stringify(glassesPhraseScreen),
+  ].join('|');
+}
 
 function layoutOpts(_ctxMode: GlassesMenuMode = glassesMenuMode): GlassesPanelLayoutOptions {
   void _ctxMode;
@@ -426,13 +436,11 @@ function lensStatusDisplayString(raw: string): string {
 }
 
 async function ensureLayoutMatchesDeck(): Promise<boolean> {
-  const next = currentOmitBottomStatusStrip();
-  if (lastLayoutOmitBottomStrip === next) return true;
+  const next = glassesLayoutSignature();
+  if (lastGlassesLayoutSignature === next) return true;
   if (!bridgeRef) return false;
   pngCache.length = 0;
-  const ok = await rebuildGlassesMenu(glassesMenuMode);
-  if (ok) lastLayoutOmitBottomStrip = next;
-  return ok;
+  return rebuildGlassesMenu(glassesMenuMode);
 }
 
 let glassesAutoplayTimer: ReturnType<typeof setTimeout> | 0 = 0;
@@ -611,6 +619,7 @@ async function rebuildGlassesMenu(mode: GlassesMenuMode): Promise<boolean> {
     return false;
   }
   glassesMenuMode = mode;
+  lastGlassesLayoutSignature = glassesLayoutSignature();
   return true;
 }
 
@@ -852,6 +861,13 @@ export function getGlassesSlideIndex(): number {
 }
 
 /** Step glasses slides when the bridge is active (mirrors Prev / Next on G2). */
+/** Hub / G2: system exit confirmation (`shutDownPageContainer(1)`). Safe no-op without a bridge. */
+export function requestHubExitWithConfirmation(explicitBridge?: EvenAppBridge | null): void {
+  const b = explicitBridge ?? bridgeRef;
+  if (!b) return;
+  void b.shutDownPageContainer(1);
+}
+
 export async function glassesNavRelative(delta: number): Promise<void> {
   if (!bridgeRef || slides.length === 0) return;
   glassesAutoplaySessionPaused = true;
@@ -876,7 +892,7 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
     return { ok: false, error: startupFailureMessage(created) };
   }
 
-  lastLayoutOmitBottomStrip = currentOmitBottomStatusStrip();
+  lastGlassesLayoutSignature = glassesLayoutSignature();
 
   bridge.onEvenHubEvent((incoming) => {
     const event = normalizeEvenHubEvent(incoming);
@@ -981,7 +997,7 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
     if (eqGlassesName(name, ITEM_EXIT)) {
       glassesForceReplayAutoplay = false;
       stopGlassesAutoplay();
-      void bridge.shutDownPageContainer(1);
+      requestHubExitWithConfirmation();
       return;
     }
     if (eqGlassesName(name, ITEM_PREV)) {

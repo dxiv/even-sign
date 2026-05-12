@@ -767,6 +767,20 @@ html.ev-screenshot-mode .ev-stage {
 
 .ev-quick-master__body {
   margin-top: 8px;
+  max-height: min(42vh, 320px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.ev-quick-details__body {
+  margin-top: 8px;
+  max-height: min(32vh, 240px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 .ev-quick-details {
@@ -902,6 +916,7 @@ html.ev-screenshot-mode .ev-stage {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.22);
+  scroll-margin-bottom: 1rem;
 }
 
 .ev-saved__row + .ev-saved__row {
@@ -1157,6 +1172,15 @@ html.ev-screenshot-mode .ev-stage {
 
 .hub-card__main {
   padding: 14px 16px 14px;
+}
+
+/* Let tall “Quick phrases” / nested rows scroll instead of clipping under the card mask. */
+.hub-card.ev-panel .hub-card__main {
+  max-height: min(78dvh, 580px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 .hub-card__hint {

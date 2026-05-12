@@ -3,6 +3,7 @@ import {
   displayPhraseOnGlasses,
   getGlassesSlideIndex,
   glassesNavRelative,
+  requestHubExitWithConfirmation,
   runGlossOnBridge,
   setGlassesAutoplayPreference,
   setPhraseSlideOptions,
@@ -257,6 +258,63 @@ function logLine(out: HTMLPreElement | null, message: string, error: boolean): v
   out.classList.toggle('even-out--error', error);
 }
 
+/** True when double-tap-to-exit should ignore the event target (controls, chips, links). */
+function isHubDoubleTapExitExcludedTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      [
+        'textarea',
+        'input',
+        'select',
+        'button',
+        'a[href]',
+        'summary',
+        '[contenteditable="true"]',
+        '.ev-sign-chip',
+        '.ev-chip',
+        '.ev-chip__btn',
+        '.ev-chip__star',
+        'label',
+      ].join(','),
+    ),
+  );
+}
+
+/**
+ * Even Hub: double-tap on the root page (outside excluded controls) opens the system exit
+ * confirmation — same path as glasses (`requestHubExitWithConfirmation`).
+ */
+function attachRootPageDoubleTapExit(root: HTMLElement | null, hub: EvenAppBridge): void {
+  if (!root) return;
+  const gapMs = 420;
+  let lastTouchEnd = 0;
+  const go = () => requestHubExitWithConfirmation(hub);
+  root.addEventListener('dblclick', (e) => {
+    if (isHubDoubleTapExitExcludedTarget(e.target)) return;
+    e.preventDefault();
+    go();
+  });
+  root.addEventListener(
+    'touchend',
+    (e) => {
+      if (e.changedTouches.length !== 1) return;
+      if (isHubDoubleTapExitExcludedTarget(e.target)) {
+        lastTouchEnd = 0;
+        return;
+      }
+      const now = performance.now();
+      if (now - lastTouchEnd < gapMs) {
+        go();
+        lastTouchEnd = 0;
+      } else {
+        lastTouchEnd = now;
+      }
+    },
+    { passive: true },
+  );
+}
+
 export async function initGlossPage(opts: InitOpts): Promise<void> {
   const { bridge, bridgeAbsentReason } = opts;
   const panel = document.getElementById('ev-sign-panel');
@@ -300,11 +358,12 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
   let glassesUiOk = false;
 
   if (bridge) {
+    attachRootPageDoubleTapExit(document.getElementById('ev-hub-root'), bridge);
     const started = await runGlossOnBridge(bridge);
     if (started.ok) {
       glassesUiOk = true;
       log(
-        'Ready. G2: slim list on the left (swipe + tap). Idle: phrase categories (pick a section, then a word). After Send or picking a word: Prev · Next · Replay · Clear · Phrases · Exit. Double-tap: word list → categories; deck → category home; on home, double-tap exits.',
+        'Ready. G2: slim list on the left (swipe + tap). Idle: phrase categories (pick a section, then a word). After Send or picking a word: Prev · Next · Replay · Clear · Phrases · Exit. Double-tap: word list → categories; deck → category home; on home, double-tap exits. Double-tap empty space on this page (not on buttons or the text field) for the same exit prompt.',
       );
     } else {
       logErr(started.error);
