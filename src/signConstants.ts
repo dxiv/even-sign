@@ -36,7 +36,7 @@ const GLASSES_LIST_PAD = 6;
 /** Reserved for optional compact nav layout (`compactNavList`); home uses full phrase category list. */
 const GLASSES_NAV_IDLE_ROW_COUNT = 2;
 /** Approximate list row height for layout math (G2 firmware may differ slightly). */
-const GLASSES_LIST_ROW_APPROX_PX = 34;
+const GLASSES_LIST_ROW_APPROX_PX = 36;
 const GLASSES_TEXT_BORDER_W = 1;
 /** Slightly brighter edge than list so the strip reads as a separate instrument. */
 const GLASSES_TEXT_BORDER_COLOR = 6;
@@ -124,7 +124,7 @@ export function glassesPanelLayout(opts?: GlassesPanelLayoutOptions): {
       rows * GLASSES_LIST_ROW_APPROX_PX +
       2 * GLASSES_LIST_PAD +
       2 * GLASSES_LIST_BORDER_W +
-      10;
+      28;
     listH = Math.min(fullListH, Math.max(58, body));
   }
 

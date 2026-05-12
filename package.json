@@ -18,7 +18,7 @@
     "test": "vitest run",
     "build": "npm run test && tsc --noEmit && vite build",
     "preview": "vite preview",
-    "sim": "evenhub-simulator http://localhost:5173",
+    "sim": "evenhub-simulator http://localhost:5173/?simExitParity=1",
     "hub:qr": "evenhub qr --url http://localhost:5173",
     "build:signs": "node scripts/build-sign-assets.mjs",
     "build:words": "node scripts/build-word-signs.mjs",

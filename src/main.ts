@@ -1,5 +1,6 @@
 import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
 import { initGlossPage } from './glossPage';
+import { initSimExitParityFromUrl } from './simExitParity';
 import './style.css';
 
 const BRIDGE_WAIT_MS = 4000;
@@ -18,6 +19,7 @@ function forceBrowserOnly(): boolean {
 }
 
 async function main() {
+  initSimExitParityFromUrl();
   const loading = document.getElementById('loading-line');
   if (forceBrowserOnly()) {
     document.documentElement.classList.add('ev-browser-mode');

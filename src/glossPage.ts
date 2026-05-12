@@ -1,5 +1,6 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk';
 import {
+  beginHubExitConfirmationFlow,
   displayPhraseOnGlasses,
   getGlassesSlideIndex,
   glassesNavRelative,
@@ -15,6 +16,7 @@ import { phraseToSlides, type PhraseToSlidesOptions } from './signSlides';
 import { slideDeckDelayAfterSlide } from './slideDeckTiming';
 import { slideToPngBytes, type SlideToPngOptions } from './signRender';
 import { addRecent, loadUserPrefs, toggleFavorite, type UserPrefs } from './userPrefs';
+import { isSimExitParitySession } from './simExitParity';
 
 type InitOpts = {
   bridge: EvenAppBridge | null;
@@ -275,26 +277,76 @@ function isHubDoubleTapExitExcludedTarget(target: EventTarget | null): boolean {
         '.ev-chip',
         '.ev-chip__btn',
         '.ev-chip__star',
-        'label',
+        'label.ev-sign-opt',
       ].join(','),
     ),
   );
 }
 
 /**
- * Even Hub: double-tap on the root page (outside excluded controls) opens the system exit
- * confirmation — same path as glasses (`requestHubExitWithConfirmation`).
+ * Even Hub: double-tap on the root page (outside excluded controls) uses the same lens-first
+ * exit flow as **Exit app** — `beginHubExitConfirmationFlow()` (G2 Stay/Leave), then SDK
+ * `shutDownPageContainer(1)` after Leave; falls back to direct exit if no glasses session.
  */
 function attachRootPageDoubleTapExit(root: HTMLElement | null, hub: EvenAppBridge): void {
-  if (!root) return;
+  if (!root) {
+    if (import.meta.env.DEV) {
+      console.warn('[Gloss] ev-hub-root missing; root double-tap exit not attached.');
+    }
+    return;
+  }
   const gapMs = 420;
+  /** Avoid duplicate hub calls if several gesture paths fire close together. */
+  const debounceGoMs = 400;
   let lastTouchEnd = 0;
-  const go = () => requestHubExitWithConfirmation(hub);
+  let lastPointerClick = 0;
+  let lastGoAt = 0;
+
+  const go = () => {
+    const now = performance.now();
+    if (now - lastGoAt < debounceGoMs) return;
+    lastGoAt = now;
+    if (import.meta.env.DEV) {
+      console.info('[Gloss] Root exit gesture → beginHubExitConfirmationFlow()');
+    }
+    if (!beginHubExitConfirmationFlow()) {
+      void requestHubExitWithConfirmation(hub);
+    }
+  };
+
+  /**
+   * Pointer path: WebView2 / some sim builds never set `click.detail === 2`. Accept either
+   * `detail >= 2`, two full clicks within `gapMs`, or `dblclick`.
+   */
+  root.addEventListener('click', (e) => {
+    if (e.button !== 0) return;
+    if (isHubDoubleTapExitExcludedTarget(e.target)) {
+      lastPointerClick = 0;
+      return;
+    }
+    const now = performance.now();
+    if (e.detail >= 2) {
+      e.preventDefault();
+      go();
+      lastPointerClick = 0;
+      return;
+    }
+    if (now - lastPointerClick < gapMs) {
+      e.preventDefault();
+      go();
+      lastPointerClick = 0;
+    } else {
+      lastPointerClick = now;
+    }
+  });
+
   root.addEventListener('dblclick', (e) => {
+    if (e.button !== 0) return;
     if (isHubDoubleTapExitExcludedTarget(e.target)) return;
     e.preventDefault();
     go();
   });
+
   root.addEventListener(
     'touchend',
     (e) => {
@@ -357,13 +409,54 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
 
   let glassesUiOk = false;
 
+  /** Local browser: stub bridge for double-tap / Exit without the Even app. */
+  const devStubBridge: EvenAppBridge | null =
+    import.meta.env.DEV && !bridge
+      ? ({
+          shutDownPageContainer: (mode?: number) => {
+            const m = mode ?? 0;
+            log(`[dev] Hub exit → shutDownPageContainer(${m}) (no Even bridge here).`);
+            console.info(`[Gloss dev] shutDownPageContainer(${m})`);
+            return Promise.resolve(true);
+          },
+        } as EvenAppBridge)
+      : null;
+
+  const btnHubExit = document.getElementById('ev-hub-exit') as HTMLButtonElement | null;
+  if (btnHubExit) {
+    if (bridge) {
+      btnHubExit.disabled = false;
+      btnHubExit.removeAttribute('title');
+      btnHubExit.addEventListener('click', () => {
+        if (!beginHubExitConfirmationFlow()) {
+          void requestHubExitWithConfirmation(bridge);
+        }
+      });
+    } else if (devStubBridge) {
+      btnHubExit.disabled = false;
+      btnHubExit.title = 'Dev: stub only (no Even app).';
+      btnHubExit.addEventListener('click', () => {
+        if (!beginHubExitConfirmationFlow()) {
+          void requestHubExitWithConfirmation(devStubBridge);
+        }
+      });
+    } else {
+      btnHubExit.disabled = true;
+      btnHubExit.title = 'Open Gloss inside the Even app to leave the Hub page.';
+    }
+  }
+
   if (bridge) {
     attachRootPageDoubleTapExit(document.getElementById('ev-hub-root'), bridge);
     const started = await runGlossOnBridge(bridge);
     if (started.ok) {
       glassesUiOk = true;
       log(
-        'Ready. G2: slim list on the left (swipe + tap). Idle: phrase categories (pick a section, then a word). After Send or picking a word: Prev · Next · Replay · Clear · Phrases · Exit. Double-tap: word list → categories; deck → category home; on home, double-tap exits. Double-tap empty space on this page (not on buttons or the text field) for the same exit prompt.',
+        `Ready. G2: slim list on the left (swipe + tap). Idle: phrase categories (pick a section, then a word). After Send or picking a word: Prev · Next · Replay · Clear · Phrases · < Exit. Double-tap: word list → categories; deck → category home; on home, double-tap exits. Use Exit app at the bottom (or double-tap empty space away from controls) for the phone leave prompt.${
+          isSimExitParitySession()
+            ? ' Sim exit parity on (?simExitParity=1): after exit you will get an in-page sheet if the system dialog is missing.'
+            : ''
+        }`,
       );
     } else {
       logErr(started.error);
@@ -376,6 +469,14 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
     );
   } else {
     log('Open in the Even app for glasses, or add ?pc=1 to try the UI in a browser.');
+  }
+
+  if (devStubBridge) {
+    const root = document.getElementById('ev-hub-root');
+    if (root) {
+      attachRootPageDoubleTapExit(root, devStubBridge);
+      log('Dev: use Exit app or double-click empty space (not buttons/textarea) to test hub exit wiring.');
+    }
   }
 
   const refreshPreview = () => void runLocalPreview(ta?.value ?? '', previewEls);

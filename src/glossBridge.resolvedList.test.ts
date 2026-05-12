@@ -17,6 +17,17 @@ describe('resolvedListItemName', () => {
     });
   });
 
+  it('resolves hub exit confirmation rows (header, Stay, Leave)', () => {
+    __testSetGlossBridgeState({
+      menuMode: 'phrases',
+      phraseScreen: { kind: 'hub_exit_confirm' },
+      slides: [],
+    });
+    expect(resolvedListItemName({ currentSelectItemIndex: 0 })).toBe('__header__');
+    expect(resolvedListItemName({ currentSelectItemIndex: 1 })).toBe('Stay');
+    expect(resolvedListItemName({ currentSelectItemIndex: 2 })).toBe('Leave');
+  });
+
   it('resolves category rows on home (default phrases + categories)', () => {
     __testSetGlossBridgeState({
       menuMode: 'phrases',
@@ -26,6 +37,8 @@ describe('resolvedListItemName', () => {
     expect(resolvedListItemName({ currentSelectItemIndex: 0 })).toBe('__header__');
     expect(resolvedListItemName({ currentSelectItemIndex: 1 })).toBe('Browse');
     expect(resolvedListItemName({ currentSelectItemIndex: 2 })).toBe('Recents');
+    expect(resolvedListItemName({ currentSelectItemIndex: 3 })).toBe('Favorites');
+    expect(resolvedListItemName({ currentSelectItemIndex: 4 })).toBe('< Exit');
   });
 
   it('prefers in-range index over stale name (nav list)', () => {
@@ -44,7 +57,7 @@ describe('resolvedListItemName', () => {
       phraseScreen: { kind: 'categories' },
       slides: [PLACEHOLDER_SLIDE],
     });
-    expect(resolvedListItemName({ currentSelectItemName: 'Exit' })).toBe('Exit');
+    expect(resolvedListItemName({ currentSelectItemName: 'Exit' })).toBe('< Exit');
   });
 
   it('coerces string index from host JSON (G2 / simulator)', () => {
@@ -56,6 +69,8 @@ describe('resolvedListItemName', () => {
     expect(resolvedListItemName({ currentSelectItemIndex: '0' })).toBe('__header__');
     expect(resolvedListItemName({ CurrentSelect_ItemIndex: '1' })).toBe('Browse');
     expect(resolvedListItemName({ CurrentSelect_ItemIndex: '2' })).toBe('Recents');
+    expect(resolvedListItemName({ CurrentSelect_ItemIndex: '3' })).toBe('Favorites');
+    expect(resolvedListItemName({ CurrentSelect_ItemIndex: '4' })).toBe('< Exit');
   });
 
   it('maps truncated Phrases row labels on nav (G2 list firmware)', () => {
@@ -76,7 +91,7 @@ describe('resolvedListItemName', () => {
       slides: [PLACEHOLDER_SLIDE],
     });
     // nav list has header + 6 actions
-    expect(resolvedListItemName({ currentSelectItemIndex: 7 })).toBe('Exit');
+    expect(resolvedListItemName({ currentSelectItemIndex: 7 })).toBe('< Exit');
   });
 
   it('returns undefined for unknown index or empty payload', () => {

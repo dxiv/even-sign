@@ -325,6 +325,59 @@ body {
   color: var(--ev-muted);
 }
 
+/* Hub page footer — explicit exit (reliable vs embedded-WebView double-click quirks) */
+.ev-hub-foot {
+  margin: 1.75rem auto 0;
+  max-width: 24rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.ev-hub-foot__exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ev-touch-min);
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 107, 122, 0.35);
+  background: rgba(24, 8, 10, 0.55);
+  color: #ffb3bc;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.ev-hub-foot__exit:hover:not(:disabled) {
+  border-color: rgba(255, 120, 130, 0.55);
+  background: rgba(40, 14, 18, 0.75);
+  color: #ffd0d4;
+}
+
+.ev-hub-foot__exit:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--ev-muted);
+}
+
+.ev-hub-foot__hint {
+  margin: 0.65rem auto 0;
+  max-width: 22rem;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.05em;
+  color: var(--ev-muted);
+}
+
 /* —— Home hero (store / launch screenshot friendly) —— */
 .ev-home {
   margin: 0 auto 1.75rem;
@@ -466,6 +519,10 @@ body {
 
 /* Hero-only capture for app listings */
 html.ev-screenshot-mode .ev-panel {
+  display: none !important;
+}
+
+html.ev-screenshot-mode .ev-hub-foot {
   display: none !important;
 }
 
@@ -1302,4 +1359,86 @@ pre.even-fallback-error {
   .hub-capture {
     transition: none;
   }
+}
+
+/* Even Hub simulator: in-page exit parity (only when ?simExitParity=1 session is on) */
+.ev-sim-exit-parity {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(2, 6, 4, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.ev-sim-exit-parity__panel {
+  max-width: 22rem;
+  width: 100%;
+  padding: 1.15rem 1.2rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(61, 255, 106, 0.22);
+  background: rgba(5, 12, 9, 0.94);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
+  text-align: left;
+}
+
+.ev-sim-exit-parity__title {
+  margin: 0 0 0.65rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ev-green-bright);
+}
+
+.ev-sim-exit-parity__body {
+  margin: 0 0 1rem;
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  color: var(--ev-muted-bright);
+}
+
+.ev-sim-exit-parity__code {
+  font-size: 10px;
+  color: var(--ev-green-dim);
+}
+
+.ev-sim-exit-parity__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 0.65rem;
+}
+
+.ev-sim-exit-parity__btn {
+  flex: 1 1 auto;
+  min-height: var(--ev-touch-min);
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ev-line-green);
+  background: linear-gradient(180deg, #8ae8a8 0%, var(--ev-green) 52%, var(--ev-green-deep) 100%);
+  color: var(--ev-bg);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ev-sim-exit-parity__btn--ghost {
+  background: transparent;
+  color: var(--ev-green-bright);
+  border-color: var(--ev-line);
+}
+
+.ev-sim-exit-parity__hint {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--ev-muted);
 }

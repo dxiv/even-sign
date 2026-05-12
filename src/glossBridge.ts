@@ -38,6 +38,7 @@ import { slideToPngBytes, type SlideToPngOptions } from './signRender';
 import { phraseToSlides, type PhraseToSlidesOptions, type SignSlide } from './signSlides';
 import { slideDeckDelayAfterSlide } from './slideDeckTiming';
 import { addRecent, isFavorite, loadUserPrefs, toggleFavorite } from './userPrefs';
+import { isSimExitParitySession, offerHubExitSimulatorParityUi } from './simExitParity';
 
 /** G2 list labels: short readable English (row width is tight; clarity beats opaque glyphs). */
 const ITEM_PREV = 'Prev';
@@ -47,7 +48,7 @@ const ITEM_REPLAY = 'Replay';
 const ITEM_CLEAR = 'Clear';
 /** Opens quick phrases (same snippets as phone quick-insert). */
 const ITEM_PHRASES = 'Phrases';
-const ITEM_EXIT = 'Exit';
+const ITEM_EXIT = '< Exit';
 /** Non-action top row: shows the current context (screen/selection). */
 const ITEM_HEADER = '__header__';
 const ITEM_BACK = 'Back';
@@ -56,8 +57,11 @@ const ITEM_FAVORITES = 'Favorites';
 const ITEM_BROWSE = 'Browse';
 const ITEM_FAV_ON = '★';
 const ITEM_FAV_OFF = '☆';
+/** Lens list: confirm leaving the Hub page (before `shutDownPageContainer(1)`). */
+const ITEM_HUB_EXIT_STAY = 'Stay';
+const ITEM_HUB_EXIT_LEAVE = 'Leave';
 
-/** Full nav when a phrase deck is on-screen (Prev … Exit). Idle/home uses phrase categories instead of this list. */
+/** Full nav when a phrase deck is on-screen (Prev … < Exit). Idle/home uses phrase categories instead of this list. */
 const NAV_LIST_NAMES_FULL = [
   ITEM_PREV,
   ITEM_NEXT,
@@ -83,16 +87,78 @@ export const GLASSES_PHRASE_MAX_LIST_LEN = Math.max(
 
 type GlassesMenuMode = 'nav' | 'phrases';
 
-/** Phrases UI: root → (recents | favorites | categories | words). */
+/** Phrases UI: root → (recents | favorites | categories | words) + hub exit confirm sheet. */
 type GlassesPhraseScreen =
   | { kind: 'root' }
   | { kind: 'recents' }
   | { kind: 'favorites' }
   | { kind: 'categories' }
-  | { kind: 'words'; categoryTitle: string };
+  | { kind: 'words'; categoryTitle: string }
+  | { kind: 'hub_exit_confirm' };
 
 let glassesMenuMode: GlassesMenuMode = 'phrases';
 let glassesPhraseScreen: GlassesPhraseScreen = { kind: 'root' };
+
+/** Snapshot when showing the lens “leave Hub?” sheet (Stay / Leave). */
+let hubExitRestore: { menu: GlassesMenuMode; phrase: GlassesPhraseScreen } | null = null;
+
+function copyPhraseScreen(s: GlassesPhraseScreen): GlassesPhraseScreen {
+  if (s.kind === 'words') return { kind: 'words', categoryTitle: s.categoryTitle };
+  if (s.kind === 'hub_exit_confirm') return { kind: 'root' };
+  return s;
+}
+
+/** Restore list after cancelling the lens hub-exit sheet. */
+function cancelHubExitConfirm(): void {
+  const snap = hubExitRestore;
+  hubExitRestore = null;
+  if (!snap) {
+    glassesPhraseScreen = { kind: 'root' };
+    glassesMenuMode = 'phrases';
+  } else {
+    glassesMenuMode = snap.menu;
+    glassesPhraseScreen = snap.phrase;
+  }
+  void (async () => {
+    const ok = await rebuildGlassesMenu(glassesMenuMode);
+    if (ok) void showSlide(slideIndex);
+  })();
+}
+
+/** After user confirms on-lens; then SDK exit-with-confirmation (Even app layer). */
+function confirmHubExitLeave(): void {
+  hubExitRestore = null;
+  glassesForceReplayAutoplay = false;
+  stopGlassesAutoplay();
+  requestHubExitWithConfirmation();
+}
+
+/**
+ * Show a short **G2 list** (Stay / Leave) so exit confirmation is visible on-lens first; then
+ * `shutDownPageContainer(1)` only after **Leave** (see Even Hub page lifecycle).
+ * Returns `true` when the lens flow was started (or already showing); `false` when no bridge.
+ */
+export function beginHubExitConfirmationFlow(): boolean {
+  if (!bridgeRef) return false;
+  if (glassesPhraseScreen.kind === 'hub_exit_confirm') return true;
+  hubExitRestore = { menu: glassesMenuMode, phrase: copyPhraseScreen(glassesPhraseScreen) };
+  glassesMenuMode = 'phrases';
+  glassesPhraseScreen = { kind: 'hub_exit_confirm' };
+  void (async () => {
+    const ok = await rebuildGlassesMenu('phrases');
+    if (!ok) {
+      if (hubExitRestore) {
+        glassesMenuMode = hubExitRestore.menu;
+        glassesPhraseScreen = hubExitRestore.phrase;
+        hubExitRestore = null;
+      }
+      requestHubExitWithConfirmation();
+      return;
+    }
+    void showSlide(slideIndex);
+  })();
+  return true;
+}
 
 function eqGlassesName(name: string, literal: string): boolean {
   return name.trim().toLowerCase() === literal.trim().toLowerCase();
@@ -100,7 +166,7 @@ function eqGlassesName(name: string, literal: string): boolean {
 
 /**
  * Map host-reported row text to our `itemName` string. G2 often truncates long labels
- * (e.g. "Phrase" vs "Phrases") while short rows like "Exit" still match exactly.
+ * (e.g. "Phrase" vs "Phrases"). Legacy hosts may still report "Exit" for the `< Exit` row.
  */
 function matchGlassesListRowLabel(trimmed: string, names: readonly string[]): string | undefined {
   const exact = names.find((n) => eqGlassesName(n, trimmed));
@@ -112,6 +178,10 @@ function matchGlassesListRowLabel(trimmed: string, names: readonly string[]): st
   }
   const phrasesRow = names.find((n) => eqGlassesName(n, ITEM_PHRASES));
   if (phrasesRow && (tl === 'phrase' || tl === 'phras')) return phrasesRow;
+  const leaveRow = names.find((n) => eqGlassesName(n, ITEM_HUB_EXIT_LEAVE));
+  if (leaveRow && tl.startsWith('lea')) return leaveRow;
+  const exitRow = names.find((n) => eqGlassesName(n, ITEM_EXIT));
+  if (exitRow && (tl === 'exit' || tl.startsWith('< e'))) return exitRow;
   return undefined;
 }
 
@@ -126,8 +196,13 @@ function handleGlobalDoubleTap(): void {
   glassesForceReplayAutoplay = false;
   stopGlassesAutoplay();
 
+  if (glassesPhraseScreen.kind === 'hub_exit_confirm') {
+    cancelHubExitConfirm();
+    return;
+  }
+
   if (isGlassesHomeState()) {
-    requestHubExitWithConfirmation();
+    beginHubExitConfirmationFlow();
     return;
   }
 
@@ -161,8 +236,11 @@ function glassesPhraseListItemNames(): string[] {
   const recents = prefs.recents.map((r) => r.phrase);
   const favorites = prefs.favorites;
 
+  if (glassesPhraseScreen.kind === 'hub_exit_confirm') {
+    return [ITEM_HEADER, ITEM_HUB_EXIT_STAY, ITEM_HUB_EXIT_LEAVE];
+  }
   if (glassesPhraseScreen.kind === 'root') {
-    return [ITEM_HEADER, ITEM_BROWSE, ITEM_RECENTS, ITEM_FAVORITES];
+    return [ITEM_HEADER, ITEM_BROWSE, ITEM_RECENTS, ITEM_FAVORITES, ITEM_EXIT];
   }
   if (glassesPhraseScreen.kind === 'recents') {
     return [ITEM_HEADER, ...recents, ITEM_BACK];
@@ -192,6 +270,8 @@ function headerLabelForCurrentList(): string {
   };
   if (glassesMenuMode === 'phrases') {
     switch (glassesPhraseScreen.kind) {
+      case 'hub_exit_confirm':
+        return fmt('Gloss Exit');
       case 'root':
         return fmt('Phrases');
       case 'recents':
@@ -237,7 +317,7 @@ export function resolvedListItemName(list: unknown): string | undefined {
 
   /**
    * Prefer index when it refers to a real row on the **current** list. The host often keeps a
-   * stale `currentSelectItemName` from a previous layout (e.g. “Exit” while row 0 is Phrases).
+   * stale `currentSelectItemName` from a previous layout (e.g. “< Exit” while row 0 is Phrases).
    */
   if (typeof idx === 'number' && Number.isFinite(idx)) {
     if (idx >= 0 && idx < names.length) return names[idx];
@@ -399,7 +479,8 @@ function glassesLayoutSignature(): string {
 function layoutOpts(_ctxMode: GlassesMenuMode = glassesMenuMode): GlassesPanelLayoutOptions {
   void _ctxMode;
   const isCompactPhrasesRoot =
-    _ctxMode === 'phrases' && glassesPhraseScreen.kind === 'root';
+    _ctxMode === 'phrases' &&
+    (glassesPhraseScreen.kind === 'root' || glassesPhraseScreen.kind === 'hub_exit_confirm');
   return {
     omitBottomStatusStrip: currentOmitBottomStatusStrip(),
     /** Use full-height list column for reliable G2 taps (categories home + phrases use the same slot). */
@@ -565,6 +646,8 @@ function phrasesList(): ListContainerProperty {
   const body = canonical.slice(1);
   const displayBody = body.map((s) => {
     if (s === ITEM_BACK) return '< Back';
+    if (s === ITEM_EXIT) return ITEM_EXIT;
+    if (glassesPhraseScreen.kind === 'hub_exit_confirm') return capitalizeFirst(s);
     if (glassesPhraseScreen.kind === 'categories') return capitalizeFirst(s);
     if (glassesPhraseScreen.kind === 'words') return s.toLowerCase();
     if (glassesPhraseScreen.kind === 'root') return capitalizeFirst(s);
@@ -865,7 +948,16 @@ export function getGlassesSlideIndex(): number {
 export function requestHubExitWithConfirmation(explicitBridge?: EvenAppBridge | null): void {
   const b = explicitBridge ?? bridgeRef;
   if (!b) return;
-  void b.shutDownPageContainer(1);
+  void (async () => {
+    try {
+      await b.shutDownPageContainer(1);
+    } catch {
+      /* host / webview may throw; parity UI still helps QA in the simulator */
+    }
+    if (isSimExitParitySession()) {
+      offerHubExitSimulatorParityUi(b);
+    }
+  })();
 }
 
 export async function glassesNavRelative(delta: number): Promise<void> {
@@ -946,6 +1038,18 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
     if (glassesMenuMode === 'phrases') setHeaderFocus(name);
 
     if (glassesMenuMode === 'phrases') {
+      if (glassesPhraseScreen.kind === 'hub_exit_confirm') {
+        if (eqGlassesName(name, ITEM_HUB_EXIT_STAY)) {
+          cancelHubExitConfirm();
+          return;
+        }
+        if (eqGlassesName(name, ITEM_HUB_EXIT_LEAVE)) {
+          confirmHubExitLeave();
+          return;
+        }
+        return;
+      }
+
       if (eqGlassesName(name, ITEM_BACK)) {
         if (glassesPhraseScreen.kind === 'words') glassesPhraseScreen = { kind: 'categories' };
         else if (glassesPhraseScreen.kind === 'categories') glassesPhraseScreen = { kind: 'root' };
@@ -961,7 +1065,12 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
         if (eqGlassesName(name, ITEM_RECENTS)) glassesPhraseScreen = { kind: 'recents' };
         else if (eqGlassesName(name, ITEM_FAVORITES)) glassesPhraseScreen = { kind: 'favorites' };
         else if (eqGlassesName(name, ITEM_BROWSE)) glassesPhraseScreen = { kind: 'categories' };
-        else return;
+        else if (eqGlassesName(name, ITEM_EXIT)) {
+          glassesForceReplayAutoplay = false;
+          stopGlassesAutoplay();
+          beginHubExitConfirmationFlow();
+          return;
+        } else return;
         void (async () => {
           const ok = await rebuildGlassesMenu('phrases');
           if (ok) void showSlide(slideIndex);
@@ -997,7 +1106,7 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
     if (eqGlassesName(name, ITEM_EXIT)) {
       glassesForceReplayAutoplay = false;
       stopGlassesAutoplay();
-      requestHubExitWithConfirmation();
+      beginHubExitConfirmationFlow();
       return;
     }
     if (eqGlassesName(name, ITEM_PREV)) {
