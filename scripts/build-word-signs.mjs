@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const SIGNS_DIR = path.join(ROOT, 'public', 'signs');
 const WORDS_DIR = path.join(SIGNS_DIR, 'words');
+const WORD_MANIFEST_JSON = path.join(ROOT, 'src', 'wordSignManifest.json');
 const SLIDES_TS = path.join(ROOT, 'src', 'signSlides.ts');
 
 const SIGN_DIMS = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'signDimensions.json'), 'utf8'));
@@ -306,6 +307,17 @@ async function composeWordStrip(chars) {
   return compositeTransparentFrame(raw);
 }
 
+/** Lets runtime skip speculative `fetch` for missing slugs (avoids 4xx noise / review tooling). */
+function writeWordSlugManifest() {
+  const slugs = fs
+    .readdirSync(WORDS_DIR)
+    .filter((f) => f.endsWith('.png'))
+    .map((f) => f.slice(0, -4))
+    .sort();
+  fs.writeFileSync(WORD_MANIFEST_JSON, `${JSON.stringify({ slugs }, null, 2)}\n`, 'utf8');
+  console.log('wrote', path.relative(ROOT, WORD_MANIFEST_JSON), `(${slugs.length} slugs)`);
+}
+
 async function main() {
   const ts = fs.readFileSync(SLIDES_TS, 'utf8');
   const rows = parseGlossary(ts);
@@ -331,6 +343,7 @@ async function main() {
     console.log('wrote', `words/${slug}.png`, `(${chars.join('')})`);
   }
 
+  writeWordSlugManifest();
   console.log('Done →', WORDS_DIR);
 }
 

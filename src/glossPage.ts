@@ -33,6 +33,23 @@ type PreviewEls = {
 const LS_COMPACT = 'gloss_compact';
 const LS_CAPTIONS = 'gloss_captions';
 
+/** Typing would otherwise re-render preview every keypress (PNG + blob churn). */
+const PREVIEW_INPUT_DEBOUNCE_MS = 120;
+/** In-memory cache for hub preview PNG bytes (phrase + options + slide index). */
+const previewPngCache = new Map<string, Uint8Array>();
+const PREVIEW_PNG_CACHE_MAX = 64;
+
+function previewPngCacheKey(
+  phrase: string,
+  slideOpts: PhraseToSlidesOptions,
+  pngOpts: SlideToPngOptions,
+  slideIdx: number,
+): string {
+  const cap = pngOpts.showCaptions !== false ? '1' : '0';
+  const compact = slideOpts.compactGlossary === true ? '1' : '0';
+  return `${phrase}\0${cap}\0${compact}\0${slideIdx}`;
+}
+
 function renderSavedChipRow(container: HTMLElement, items: string[], prefs: UserPrefs): void {
   container.replaceChildren();
   const frag = document.createDocumentFragment();
@@ -189,15 +206,27 @@ async function updateLocalPreviewSingle(
   if (!img) return;
   const slides = phraseToSlides(phrase, slideOpts);
   if (slides.length === 0) return;
-  const s = slides[slideIdx % slides.length];
-  const bytes = await slideToPngBytes(s, pngOpts);
+  const i = slideIdx % slides.length;
+  const s = slides[i];
+  const key = previewPngCacheKey(phrase, slideOpts, pngOpts, i);
+  let bytes = previewPngCache.get(key);
+  if (!bytes) {
+    bytes = await slideToPngBytes(s, pngOpts);
+    if (previewPngCache.size >= PREVIEW_PNG_CACHE_MAX) previewPngCache.clear();
+    previewPngCache.set(key, bytes);
+  }
   const blob = new Blob([bytes], { type: 'image/png' });
   const url = URL.createObjectURL(blob);
   const prev = img.dataset.blobUrl;
-  if (prev) URL.revokeObjectURL(prev);
   img.dataset.blobUrl = url;
   img.src = url;
   img.alt = s.title;
+  try {
+    await img.decode();
+  } catch {
+    /* ignore */
+  }
+  if (prev) URL.revokeObjectURL(prev);
 }
 
 async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void> {
@@ -211,6 +240,7 @@ async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void>
   const text = rawInput.trim();
 
   if (text === '') {
+    previewPngCache.clear();
     clearPreviewImage(img);
     img.hidden = true;
     if (placeholder) placeholder.hidden = false;
@@ -479,10 +509,24 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
     }
   }
 
+  let previewInputDebounceTimer = 0;
+
   const refreshPreview = () => void runLocalPreview(ta?.value ?? '', previewEls);
+
+  const schedulePreviewFromTyping = () => {
+    if (previewInputDebounceTimer) window.clearTimeout(previewInputDebounceTimer);
+    previewInputDebounceTimer = window.setTimeout(() => {
+      previewInputDebounceTimer = 0;
+      refreshPreview();
+    }, PREVIEW_INPUT_DEBOUNCE_MS);
+  };
 
   const send = async () => {
     if (btnSend?.dataset.sending === '1') return;
+    if (previewInputDebounceTimer) {
+      window.clearTimeout(previewInputDebounceTimer);
+      previewInputDebounceTimer = 0;
+    }
     if (btnSend) {
       btnSend.dataset.sending = '1';
       btnSend.disabled = true;
@@ -531,20 +575,23 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
   chkCompact?.addEventListener('change', () => {
     persistToggle(LS_COMPACT, chkCompact.checked);
     syncBridgeRenderingFromUi();
+    previewPngCache.clear();
     refreshPreview();
   });
   chkCaptions?.addEventListener('change', () => {
     persistToggle(LS_CAPTIONS, chkCaptions.checked);
     syncBridgeRenderingFromUi();
+    previewPngCache.clear();
     refreshPreview();
   });
   chkAnim?.addEventListener('change', () => {
     setGlassesAutoplayPreference(previewAnimEnabled());
     if (!previewAnimEnabled()) stopGlassesAutoplay();
+    previewPngCache.clear();
     refreshPreview();
   });
 
-  ta?.addEventListener('input', refreshPreview);
+  ta?.addEventListener('input', schedulePreviewFromTyping);
 
   if (quickRow && ta) {
     quickRow.addEventListener('click', (e) => {

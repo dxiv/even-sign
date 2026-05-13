@@ -433,6 +433,17 @@ let bridgeRef: EvenAppBridge | null = null;
 let slides: SignSlide[] = [];
 let slideIndex = 0;
 const pngCache: Uint8Array[] = [];
+/** Scaled PNG bytes per glasses upload (native-size slide cache is `pngCache`). */
+const scaledPayloadCache = new Map<string, Uint8Array>();
+
+function clearScaledPayloadCache(): void {
+  scaledPayloadCache.clear();
+}
+
+function scaledPayloadCacheKey(epoch: number, slideIdx: number, w: number, h: number): string {
+  return `${epoch}|${slideIdx}|${w}|${h}`;
+}
+
 let sendChain: Promise<void> = Promise.resolve();
 /** Human-readable label for the currently loaded deck (header row in nav). */
 let deckHeaderLabel = '';
@@ -521,6 +532,7 @@ async function ensureLayoutMatchesDeck(): Promise<boolean> {
   if (lastGlassesLayoutSignature === next) return true;
   if (!bridgeRef) return false;
   pngCache.length = 0;
+  clearScaledPayloadCache();
   return rebuildGlassesMenu(glassesMenuMode);
 }
 
@@ -585,6 +597,7 @@ export function getPhraseSlideOptions(): PhraseToSlidesOptions {
 export function setSlideToPngOptions(opts: SlideToPngOptions): void {
   slideToPngOptions = { ...slideToPngOptions, ...opts };
   pngCache.length = 0;
+  clearScaledPayloadCache();
 }
 
 export function getSlideToPngOptions(): SlideToPngOptions {
@@ -800,13 +813,18 @@ async function pushStatus(text: string) {
   );
 }
 
-function enqueueImage(bytes: Uint8Array, epoch: number): Promise<void> {
+function enqueueImage(bytes: Uint8Array, epoch: number, slideIdx: number): Promise<void> {
   const b = bridgeRef;
   if (!b || bytes.length === 0) return Promise.resolve();
   sendChain = sendChain.then(async () => {
     if (epoch !== activePhraseEpoch) return;
     const box = layoutSnapshot().image;
-    const payload = await scalePngIfNeeded(bytes, box.width, box.height);
+    const cacheKey = scaledPayloadCacheKey(epoch, slideIdx, box.width, box.height);
+    let payload = scaledPayloadCache.get(cacheKey);
+    if (!payload) {
+      payload = await scalePngIfNeeded(bytes, box.width, box.height);
+      scaledPayloadCache.set(cacheKey, payload);
+    }
     const res = await b.updateImageRawData(
       new ImageRawDataUpdate({
         containerID: 3,
@@ -896,7 +914,7 @@ async function showSlide(i: number) {
     await pushStatus(`! ${clipStatus(slide.title, 20)}`);
     return;
   }
-  await enqueueImage(bytes, epoch);
+  await enqueueImage(bytes, epoch, slideIndex);
   if (epoch !== activePhraseEpoch) return;
   await pushStatus(compactGlassesStatus(slide, slideIndex, slides.length));
   scheduleGlassesAutoplayAfterDwell(epoch);
@@ -919,11 +937,19 @@ export async function displayPhraseOnGlasses(
   const forceGlassesPhraseDeck =
     opts?.glassesPhraseAutoplay === true && t.length > 1;
   glassesForceReplayAutoplay = forceGlassesPhraseDeck;
+  /**
+   * Lens phrase picker: full sign area + autoplay (no learning bar). Phone Send still follows the
+   * Show captions checkbox via `syncBridgeRenderingFromUi()` before `displayPhraseOnGlasses`.
+   */
+  if (opts?.glassesPhraseAutoplay === true && t.length > 0) {
+    slideToPngOptions = { ...slideToPngOptions, showCaptions: false };
+  }
 
   activePhraseEpoch++;
   slides = phraseToSlides(phrase, phraseSlideOptions);
   slideIndex = 0;
   pngCache.length = 0;
+  clearScaledPayloadCache();
   sendChain = Promise.resolve();
 
   if (t.length === 0) {
@@ -1163,6 +1189,7 @@ export async function runGlossOnBridge(bridge: EvenAppBridge): Promise<GlassesUi
    */
   if (currentOmitBottomStatusStrip() && glassesMenuMode === 'phrases') {
     pngCache.length = 0;
+    clearScaledPayloadCache();
     const okPh = await rebuildGlassesMenu('phrases');
     if (okPh && slides.length > 0) await showSlide(slideIndex);
   }

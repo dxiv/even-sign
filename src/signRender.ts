@@ -1,5 +1,8 @@
 import { wordAssetSlug, type SignSlide } from './signSlides';
 import { SIGN_IMAGE_HEIGHT, SIGN_IMAGE_WIDTH } from './signConstants';
+import wordSignManifest from './wordSignManifest.json';
+
+const WORD_SIGN_SLUG_SET = new Set(wordSignManifest.slugs);
 
 export { SIGN_IMAGE_HEIGHT, SIGN_IMAGE_WIDTH };
 
@@ -90,11 +93,16 @@ function drawLearningBar(c: CanvasRenderingContext2D, w: number, h: number, slid
   c.fillText(cap, BAR_PAD_X, y0 + BAR_H / 2);
 }
 
+/** Public-dir sign PNGs (Vite `public/signs`). Uses `import.meta.env.BASE_URL` so fetches work when the app is not at the site root (Hub packages). */
+function signPublicUrl(relativePath: string): string {
+  return `${import.meta.env.BASE_URL}${relativePath}`;
+}
+
 export function glyphAssetUrl(char: string): string {
   if (char >= '0' && char <= '9') {
-    return `/signs/numbers/${char}.png`;
+    return signPublicUrl(`signs/numbers/${char}.png`);
   }
-  return `/signs/alphabet/${char}.png`;
+  return signPublicUrl(`signs/alphabet/${char}.png`);
 }
 
 async function pngFromSignAsset(title: string): Promise<Uint8Array | null> {
@@ -146,8 +154,9 @@ async function pngFromWordAsset(slide: SignSlide): Promise<Uint8Array | null> {
   }
   for (const slug of slugs) {
     if (!slug) continue;
+    if (!WORD_SIGN_SLUG_SET.has(slug)) continue;
     try {
-      const res = await fetch(`/signs/words/${slug}.png`, { cache: 'force-cache' });
+      const res = await fetch(signPublicUrl(`signs/words/${slug}.png`), { cache: 'force-cache' });
       if (!res.ok) continue;
       const buf = await res.arrayBuffer();
       const u8 = new Uint8Array(buf);
