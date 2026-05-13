@@ -229,7 +229,19 @@ async function updateLocalPreviewSingle(
   if (prev) URL.revokeObjectURL(prev);
 }
 
-async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void> {
+type RunLocalPreviewOpts = {
+  /**
+   * When glasses auto-advance this deck, skip hub Animate — both paths were calling `slideToPngBytes`
+   * on the same timer and starving scroll/taps.
+   */
+  skipAnimatedWhenGlassesAutoplay?: boolean;
+};
+
+async function runLocalPreview(
+  rawInput: string,
+  els: PreviewEls,
+  opts?: RunLocalPreviewOpts,
+): Promise<void> {
   stopPreviewAnim();
   previewAnimGen++;
   const gen = previewAnimGen;
@@ -255,13 +267,22 @@ async function runLocalPreview(rawInput: string, els: PreviewEls): Promise<void>
   const pngOpts = slideToPngOptsFromUI();
   const slides = phraseToSlides(text, slideOpts);
 
-  if (!previewAnimEnabled() || slides.length <= 1) {
+  const skipHubAnim =
+    opts?.skipAnimatedWhenGlassesAutoplay === true &&
+    slides.length > 1 &&
+    previewAnimEnabled();
+
+  if (!previewAnimEnabled() || slides.length <= 1 || skipHubAnim) {
     await updateLocalPreviewSingle(text, img, slideOpts, 0, pngOpts);
     if (label) {
-      label.textContent =
-        slides.length > 1
-          ? `Preview · slide 1 of ${slides.length} · enable Animate to auto-play, or Alt+←/→ after Send`
-          : 'Preview';
+      if (skipHubAnim) {
+        label.textContent = `Preview · slide 1 of ${slides.length} · playing on glasses`;
+      } else {
+        label.textContent =
+          slides.length > 1
+            ? `Preview · slide 1 of ${slides.length} · enable Animate to auto-play, or Alt+←/→ after Send`
+            : 'Preview';
+      }
     }
     return;
   }
@@ -541,22 +562,33 @@ export async function initGlossPage(opts: InitOpts): Promise<void> {
       setGlassesAutoplayPreference(previewAnimEnabled());
 
       let statusErr: string | null = null;
+      let pushedOk = false;
+      const slideOpts = slideOptsFromUI();
+      const n = phraseToSlides(text || ' ', slideOpts).length;
+
       if (bridge && glassesUiOk) {
         const pushed = await displayPhraseOnGlasses(text);
+        pushedOk = pushed.ok;
         if (!pushed.ok) statusErr = pushed.error;
       } else if (bridge && !glassesUiOk) {
         statusErr = 'Glasses UI did not finish starting; preview updated only.';
       }
 
-      await runLocalPreview(text, previewEls);
-      const n = phraseToSlides(text || ' ', slideOptsFromUI()).length;
+      const skipHubAnimWhileGlassesPlay =
+        Boolean(bridge && glassesUiOk && pushedOk && n > 1 && previewAnimEnabled());
+
+      await runLocalPreview(text, previewEls, {
+        skipAnimatedWhenGlassesAutoplay: skipHubAnimWhileGlassesPlay,
+      });
 
       if (statusErr) {
         logErr(statusErr);
       } else if (bridge && glassesUiOk) {
         log(
           n > 1 && previewAnimEnabled()
-            ? `Sent ${n} slide(s) to your glasses — auto-advancing (same timing as Animate preview).`
+            ? skipHubAnimWhileGlassesPlay
+              ? `Sent ${n} slide(s) to your glasses — auto-advancing (preview shows slide 1 only so the phone stays responsive).`
+              : `Sent ${n} slide(s) to your glasses — auto-advancing (same timing as Animate preview).`
             : `Sent ${n} slide(s) to your glasses.`,
         );
       } else {

@@ -43,7 +43,26 @@
     <div class="ev-stage">
       <div class="ev-shell">
         <main id="ev-hub-root" class="ev-main">
-          <p id="loading-line" class="ev-boot mono" aria-live="polite">connecting…</p>
+          <div
+            id="ev-boot-screen"
+            class="ev-boot-screen"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            aria-label="Loading Gloss"
+          >
+            <div class="ev-boot-screen__card">
+              <p class="ev-boot-screen__line mono">
+                <span class="ev-boot-screen__label">Loading Gloss</span>
+                <span class="ev-boot-dots" aria-hidden="true">
+                  <span class="ev-boot-dots__dot">.</span>
+                  <span class="ev-boot-dots__dot">.</span>
+                  <span class="ev-boot-dots__dot">.</span>
+                </span>
+              </p>
+              <p class="ev-boot-screen__hint mono">Caching sign art and connecting…</p>
+            </div>
+          </div>
 
           <section class="ev-home" aria-labelledby="ev-home-title">
             <div class="ev-home__frame">

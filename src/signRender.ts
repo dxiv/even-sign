@@ -1,6 +1,7 @@
 import { wordAssetSlug, type SignSlide } from './signSlides';
 import { SIGN_IMAGE_HEIGHT, SIGN_IMAGE_WIDTH } from './signConstants';
 import wordSignManifest from './wordSignManifest.json';
+import { warmedGlyphPng, warmedWordPng } from './signAssetWarmCache';
 
 const WORD_SIGN_SLUG_SET = new Set(wordSignManifest.slugs);
 
@@ -109,6 +110,10 @@ async function pngFromSignAsset(title: string): Promise<Uint8Array | null> {
   if (!SINGLE_GLYPH.test(title)) {
     return null;
   }
+  const warm = warmedGlyphPng(title);
+  if (warm) {
+    return warm;
+  }
   try {
     const res = await fetch(glyphAssetUrl(title), { cache: 'force-cache' });
     if (!res.ok) {
@@ -155,6 +160,10 @@ async function pngFromWordAsset(slide: SignSlide): Promise<Uint8Array | null> {
   for (const slug of slugs) {
     if (!slug) continue;
     if (!WORD_SIGN_SLUG_SET.has(slug)) continue;
+    const warm = warmedWordPng(slug);
+    if (warm) {
+      return warm;
+    }
     try {
       const res = await fetch(signPublicUrl(`signs/words/${slug}.png`), { cache: 'force-cache' });
       if (!res.ok) continue;

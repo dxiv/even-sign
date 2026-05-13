@@ -445,6 +445,8 @@ function scaledPayloadCacheKey(epoch: number, slideIdx: number, w: number, h: nu
 }
 
 let sendChain: Promise<void> = Promise.resolve();
+/** Bumps when a new deck prefetch should supersede an in-flight one. */
+let deckPrefetchGen = 0;
 /** Human-readable label for the currently loaded deck (header row in nav). */
 let deckHeaderLabel = '';
 function clearHeaderFocus(): void {
@@ -897,6 +899,27 @@ function compactGlassesStatus(slide: SignSlide, idx: number, total: number): str
   }
 }
 
+/**
+ * Fill `pngCache` off the hot path, one slide per frame, so stepping autoplay rarely waits on canvas.
+ */
+function runDeckPngPrefetch(epoch: number): void {
+  if (slides.length <= 1) return;
+  deckPrefetchGen++;
+  const genId = deckPrefetchGen;
+  void (async () => {
+    for (let i = 0; i < slides.length; i++) {
+      if (epoch !== activePhraseEpoch || genId !== deckPrefetchGen) return;
+      if (pngCache[i]?.length) continue;
+      try {
+        pngCache[i] = await slideToPngBytes(slides[i], slideToPngOptions);
+      } catch {
+        pngCache[i] = new Uint8Array();
+      }
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    }
+  })();
+}
+
 async function showSlide(i: number) {
   if (slides.length === 0) return;
   if (!(await ensureLayoutMatchesDeck())) return;
@@ -916,8 +939,10 @@ async function showSlide(i: number) {
   }
   await enqueueImage(bytes, epoch, slideIndex);
   if (epoch !== activePhraseEpoch) return;
-  await pushStatus(compactGlassesStatus(slide, slideIndex, slides.length));
+  /** Status strip is non-critical for pacing; awaiting it delayed slide dwell vs the simulator. */
+  void pushStatus(compactGlassesStatus(slide, slideIndex, slides.length)).catch(() => {});
   scheduleGlassesAutoplayAfterDwell(epoch);
+  runDeckPngPrefetch(epoch);
 }
 
 export async function displayPhraseOnGlasses(
@@ -952,6 +977,10 @@ export async function displayPhraseOnGlasses(
   clearScaledPayloadCache();
   sendChain = Promise.resolve();
 
+  const epoch = activePhraseEpoch;
+  const firstSlidePng =
+    t.length > 0 && slides.length > 0 ? slideToPngBytes(slides[0], slideToPngOptions) : null;
+
   if (t.length === 0) {
     deckHeaderLabel = '';
     clearHeaderFocus();
@@ -959,6 +988,9 @@ export async function displayPhraseOnGlasses(
     await rebuildGlassesMenu('phrases');
   } else if (glassesMenuMode !== 'nav') {
     await rebuildGlassesMenu('nav');
+  }
+  if (firstSlidePng && epoch === activePhraseEpoch && slides.length > 0) {
+    pngCache[0] = await firstSlidePng;
   }
   await showSlide(0);
   return { ok: true };

@@ -1,6 +1,7 @@
 import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
 import { initGlossPage } from './glossPage';
 import { initSimExitParityFromUrl } from './simExitParity';
+import { warmSignAssetCache } from './signAssetWarmCache';
 import './style.css';
 
 const BRIDGE_WAIT_MS = 4000;
@@ -20,10 +21,12 @@ function forceBrowserOnly(): boolean {
 
 async function main() {
   initSimExitParityFromUrl();
-  const loading = document.getElementById('loading-line');
+  const loading = document.getElementById('ev-boot-screen');
   if (forceBrowserOnly()) {
     document.documentElement.classList.add('ev-browser-mode');
   }
+
+  const assetWarm = warmSignAssetCache();
 
   let bridge: Awaited<ReturnType<typeof waitForEvenAppBridge>> | null = null;
   let bridgeAbsentReason: 'browser' | 'timeout' | undefined;
@@ -44,13 +47,15 @@ async function main() {
     }
   }
 
+  await assetWarm;
+
   if (loading) loading.remove();
 
   await initGlossPage({ bridge, bridgeAbsentReason });
 }
 
 void main().catch((e) => {
-  document.getElementById('loading-line')?.remove();
+  document.getElementById('ev-boot-screen')?.remove();
   const panel = document.getElementById('ev-sign-panel');
   const out = document.getElementById('ev-sign-out');
   if (panel) panel.hidden = false;
